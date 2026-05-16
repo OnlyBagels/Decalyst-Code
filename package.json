@@ -1,0 +1,55 @@
+{
+  "name": "decalyst-swarm",
+  "version": "0.1.0",
+  "description": "Two-agent harness pairing a frontier orchestrator with a local Decalyst-TS worker to generate TypeScript projects from a single prompt.",
+  "type": "module",
+  "license": "MIT",
+  "author": "OnlyBagels <12b.pittman@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OnlyBagels/Decalyst-Code.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OnlyBagels/Decalyst-Code/issues"
+  },
+  "homepage": "https://github.com/OnlyBagels/Decalyst-Code#readme",
+  "keywords": [
+    "ai",
+    "agent",
+    "code-generation",
+    "typescript",
+    "openrouter",
+    "decalyst",
+    "mistral-rs",
+    "harness"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "decalyst-swarm": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "lint": "eslint src tests --ext .ts"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "execa": "^9.3.0",
+    "openai": "^4.52.7",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "vitest": "^2.0.3"
+  }
+}

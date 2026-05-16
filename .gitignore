@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Test artifacts
+coverage/
+.vitest/
+
+# Run artifacts (keep the directory marker)
+runs/*
+!runs/.gitkeep
+
+# Generated workspace output directories
+workspace/
+test-workspace/
+out/
+
+# Local Claude Code settings (user-specific permissions, never shared)
+.claude/settings.local.json
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temp
+tmp/
+temp/
