@@ -1,35 +1,27 @@
 import * as path from "node:path";
 import { PathPolicyError } from "../utils/errors.js";
 
-const ALLOWED_PATTERNS: RegExp[] = [
-  /^src[\\/]/,
-  /^test[\\/]/,
-  /^tests[\\/]/,
-  /^README\.md$/,
-  /^package\.json$/,
-  /^tsconfig\.json$/,
-  /^eslint\.config\./,
-  /^vitest\.config\./,
-  /^\.env\.example$/,
-];
-
+// Denylist — block paths that contain secrets, VCS state, build output,
+// dependencies, or other system files. Everything else is allowed.
 const FORBIDDEN_PATTERNS: RegExp[] = [
   /^\.env($|\.(?!example))/,
   /^\.git[\\/]/,
-  /node_modules/,
+  /(^|[\\/])node_modules([\\/]|$)/,
   /^dist[\\/]/,
   /^build[\\/]/,
   /^coverage[\\/]/,
   /^package-lock\.json$/,
   /^pnpm-lock\.yaml$/,
   /^yarn\.lock$/,
-  /^Dockerfile/,
-  /^\.github[\\/]/,
+  /^\.ssh[\\/]/,
+  /^\.aws[\\/]/,
+  /^id_rsa($|\.)/,
 ];
 
 /**
- * Normalizes a path relative to workspace root and asserts it is on the allowlist.
- * Throws PathPolicyError for any path that is forbidden or traverses outside root.
+ * Normalizes a path relative to workspace root and asserts it is allowed.
+ * Uses a denylist: blocks secrets, VCS, build output, and lock files; allows
+ * any other path (any extension, any directory).
  */
 export function assertPathAllowed(rawPath: string): string {
   const normalized = normalizePath(rawPath);
@@ -39,19 +31,17 @@ export function assertPathAllowed(rawPath: string): string {
     throw new PathPolicyError(`Path traversal detected: "${rawPath}"`);
   }
 
+  // Prevent absolute paths
+  if (path.isAbsolute(normalized) || /^[a-zA-Z]:[\\/]/.test(normalized)) {
+    throw new PathPolicyError(`Absolute paths not allowed: "${rawPath}"`);
+  }
+
   for (const pattern of FORBIDDEN_PATTERNS) {
     if (pattern.test(normalized)) {
       throw new PathPolicyError(
         `Path is forbidden: "${rawPath}" (matched ${pattern})`,
       );
     }
-  }
-
-  const allowed = ALLOWED_PATTERNS.some((p) => p.test(normalized));
-  if (!allowed) {
-    throw new PathPolicyError(
-      `Path is not on the allowlist: "${rawPath}". Allowed: src/**, test/**, tests/**, README.md, package.json, tsconfig.json, eslint.config.*, vitest.config.*, .env.example`,
-    );
   }
 
   return normalized;

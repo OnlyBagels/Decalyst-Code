@@ -39,10 +39,11 @@ export type AgentResultSchema = z.infer<typeof agentResultSchema>;
 export const projectPlanSchema = z
   .object({
     projectName: z.string().min(1),
-    framework: z.enum(["fastify", "express", "hono"]),
-    packageManager: z.literal("npm"),
-    dependencies: z.record(z.string()),
-    devDependencies: z.record(z.string()),
+    projectKind: z.string().optional(),
+    framework: z.string().optional(),
+    packageManager: z.string().optional(),
+    dependencies: z.record(z.string()).optional(),
+    devDependencies: z.record(z.string()).optional(),
     files: z.array(
       z.object({
         path: z.string().min(1),
@@ -51,7 +52,7 @@ export const projectPlanSchema = z
         dependsOn: z.array(z.string()).optional(),
       }),
     ),
-    constraints: z.array(z.string()),
+    constraints: z.array(z.string()).default([]),
   })
   .strict();
 
