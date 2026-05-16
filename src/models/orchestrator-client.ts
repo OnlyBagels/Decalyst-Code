@@ -1,8 +1,9 @@
 import OpenAI from "openai";
 import { OrchestratorError } from "../utils/errors.js";
 import type { ModelClient, ChatMessage } from "./model-client.js";
+import type { UsageTracker } from "../tui/usage-tracker.js";
 
-export function createOrchestratorClient(): ModelClient {
+export function createOrchestratorClient(tracker?: UsageTracker): ModelClient {
   const apiKey = process.env["ORCHESTRATOR_API_KEY"];
   const baseURL =
     process.env["ORCHESTRATOR_BASE_URL"] ?? "https://openrouter.ai/api/v1";
@@ -11,7 +12,7 @@ export function createOrchestratorClient(): ModelClient {
 
   if (!apiKey) {
     throw new OrchestratorError(
-      "ORCHESTRATOR_API_KEY is not set. Copy .env.example to .env and add your OpenRouter key (sk-or-v1-...).",
+      "ORCHESTRATOR_API_KEY is not set. Copy .env.example to .env and add your API key.",
     );
   }
 
@@ -29,6 +30,7 @@ export function createOrchestratorClient(): ModelClient {
     temperature: number,
     maxTokens: number,
     model: string,
+    agent: string | undefined,
   ): Promise<string> {
     const res = await client.chat.completions.create({
       model,
@@ -36,6 +38,15 @@ export function createOrchestratorClient(): ModelClient {
       temperature,
       max_tokens: maxTokens,
     });
+
+    if (tracker && res.usage) {
+      tracker.record({
+        agent: agent ?? "orchestrator",
+        model,
+        promptTokens: res.usage.prompt_tokens ?? 0,
+        completionTokens: res.usage.completion_tokens ?? 0,
+      });
+    }
 
     const content = res.choices[0]?.message?.content;
     if (!content) {
@@ -45,11 +56,11 @@ export function createOrchestratorClient(): ModelClient {
   }
 
   return {
-    async completeJson({ model, messages, temperature, maxTokens }) {
-      return complete(messages, temperature, maxTokens, model ?? defaultModel);
+    async completeJson({ model, messages, temperature, maxTokens, agent }) {
+      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent);
     },
-    async completeText({ model, messages, temperature, maxTokens }) {
-      return complete(messages, temperature, maxTokens, model ?? defaultModel);
+    async completeText({ model, messages, temperature, maxTokens, agent }) {
+      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent);
     },
   };
 }

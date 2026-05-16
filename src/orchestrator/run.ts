@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { createOrchestratorClient } from "../models/orchestrator-client.js";
-import { createDecalystClient } from "../models/decalyst-client.js";
+import { createSwarmClient } from "../models/swarm-client.js";
 import { FileManager } from "../files/file-manager.js";
 import { ContextSelector } from "../context/context-selector.js";
 import { WorkerRunner } from "../workers/worker-runner.js";
@@ -40,7 +40,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   const fm = new FileManager(opts.workspaceRoot);
   const contextSelector = new ContextSelector(fm, opts.workspaceRoot);
   const orchestratorClient = createOrchestratorClient();
-  const workerClient = createDecalystClient();
+  const workerClient = createSwarmClient();
   const workerRunner = new WorkerRunner(workerClient);
   const patchManager = new PatchManager(fm);
   const planner = new Planner(orchestratorClient, opts.model);

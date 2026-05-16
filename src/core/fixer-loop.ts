@@ -121,6 +121,7 @@ export class FixerLoop {
     try {
       raw = await this.orchestrator.completeText({
         model: getDefaultOrchestratorModel(),
+        agent: "fix-planner",
         messages: [
           { role: "system", content: FIXER_SYSTEM_PROMPT },
           { role: "user", content: summary },

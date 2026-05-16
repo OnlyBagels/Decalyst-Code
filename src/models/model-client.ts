@@ -3,18 +3,16 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface ModelClient {
-  completeJson(args: {
-    model: string;
-    messages: ChatMessage[];
-    temperature: number;
-    maxTokens: number;
-  }): Promise<string>;
+export interface ModelCallArgs {
+  model: string;
+  messages: ChatMessage[];
+  temperature: number;
+  maxTokens: number;
+  /** Label used for usage-tracking attribution (e.g. "planner", "swarm:src/server.ts"). */
+  agent?: string;
+}
 
-  completeText(args: {
-    model: string;
-    messages: ChatMessage[];
-    temperature: number;
-    maxTokens: number;
-  }): Promise<string>;
+export interface ModelClient {
+  completeJson(args: ModelCallArgs): Promise<string>;
+  completeText(args: ModelCallArgs): Promise<string>;
 }

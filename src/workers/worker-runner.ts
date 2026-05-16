@@ -5,7 +5,7 @@ import {
   SHARED_WORKER_SYSTEM_PROMPT,
   getRoleInstruction,
 } from "./worker-prompts.js";
-import { getDefaultDecalystModel } from "../models/decalyst-client.js";
+import { getDefaultSwarmModel } from "../models/swarm-client.js";
 import type { ModelClient } from "../models/model-client.js";
 import type { AgentTask, AgentResult } from "../types/agent.js";
 import { safeStringify } from "../utils/json.js";
@@ -24,7 +24,8 @@ export class WorkerRunner {
     for (let attempt = 0; attempt <= MAX_WORKER_RETRIES; attempt++) {
       try {
         const raw = await this.client.completeJson({
-          model: getDefaultDecalystModel(),
+          model: getDefaultSwarmModel(),
+          agent: `swarm:${task.id}`,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPayload },

@@ -65,12 +65,13 @@ export interface FileEdit {
 }
 
 export interface ProjectContext {
-  packageManager: "npm" | "pnpm" | "yarn";
-  framework?: "fastify" | "express" | "hono";
-  testFramework?: "vitest" | "jest" | "node-test";
-  validationLibrary?: "zod";
-  moduleSystem: "esm" | "cjs";
-  strictTypeScript: boolean;
+  projectKind?: string;
+  packageManager?: string;
+  framework?: string;
+  testFramework?: string;
+  validationLibrary?: string;
+  moduleSystem?: "esm" | "cjs";
+  strictTypeScript?: boolean;
 }
 
 export interface TaskLimits {

@@ -64,6 +64,7 @@ export class FinalReview {
     try {
       intro = await this.orchestrator.completeText({
         model: getDefaultOrchestratorModel(),
+        agent: "reviewer",
         messages: [
           {
             role: "system",

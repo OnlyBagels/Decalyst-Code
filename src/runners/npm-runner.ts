@@ -1,3 +1,5 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { CommandRunner, type CommandName } from "./command-runner.js";
 import { parseTscErrors } from "./parse-tsc.js";
 import { parseVitestFailures } from "./parse-vitest.js";
@@ -13,7 +15,7 @@ export interface CheckOutcome {
 export class NpmRunner {
   private readonly runner: CommandRunner;
 
-  constructor(workspaceRoot: string) {
+  constructor(private readonly workspaceRoot: string) {
     this.runner = new CommandRunner({ cwd: workspaceRoot });
   }
 
@@ -21,11 +23,25 @@ export class NpmRunner {
     return this.runner.run(name);
   }
 
+  private async hasPackageJson(): Promise<boolean> {
+    try {
+      await fs.access(path.join(this.workspaceRoot, "package.json"));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Runs the standard MVP check sequence: install → format → typecheck → test.
-   * Stops as soon as install fails.
+   * Stops as soon as install fails. Skips entirely when no package.json exists
+   * (e.g. for static-site or single-file projects).
    */
   async runChecks(): Promise<CheckOutcome> {
+    if (!(await this.hasPackageJson())) {
+      return { results: [], compilerErrors: [], passed: true };
+    }
+
     const results: TestResult[] = [];
 
     const install = await this.runner.run("npm_install");

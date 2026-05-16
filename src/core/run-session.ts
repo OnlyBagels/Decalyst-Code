@@ -12,7 +12,7 @@ import { FileManager } from "../files/file-manager.js";
 import { NpmRunner } from "../runners/npm-runner.js";
 import { TraceWriter } from "../traces/trace-writer.js";
 import { createOrchestratorClient } from "../models/orchestrator-client.js";
-import { createDecalystClient } from "../models/decalyst-client.js";
+import { createSwarmClient } from "../models/swarm-client.js";
 import { topologicalSort } from "../utils/concurrency.js";
 import {
   MAX_FILES_PER_ROLE,
@@ -21,6 +21,7 @@ import {
 import type { AgentTask, ProjectContext } from "../types/agent.js";
 import type { ProjectPlan } from "../types/plan.js";
 import type { RunSummary } from "../types/results.js";
+import type { UsageTracker } from "../tui/usage-tracker.js";
 
 export interface RunSessionOptions {
   userRequest: string;
@@ -28,6 +29,7 @@ export interface RunSessionOptions {
   tracesRoot: string;
   concurrency: number;
   maxFixRounds: number;
+  tracker?: UsageTracker;
 }
 
 export class RunSession {
@@ -42,18 +44,20 @@ export class RunSession {
 
     await fs.mkdir(this.opts.workspaceRoot, { recursive: true });
 
-    const orchestrator = createOrchestratorClient();
-    const decalyst = createDecalystClient();
+    const tracker = this.opts.tracker;
+    const orchestrator = createOrchestratorClient(tracker);
+    const swarm = createSwarmClient(tracker);
 
     const fm = new FileManager(this.opts.workspaceRoot);
     const contextSelector = new ContextSelector(fm, this.opts.workspaceRoot);
-    const workerRunner = new WorkerRunner(decalyst);
+    const workerRunner = new WorkerRunner(swarm);
     const patchManager = new PatchManager(fm);
     const npm = new NpmRunner(this.opts.workspaceRoot);
 
     const startedAt = new Date().toISOString();
 
     // 1. Plan
+    tracker?.setPhase("planner");
     const planner = new Planner(orchestrator);
     const plan = await planner.createPlan(this.opts.userRequest);
     await trace.writePlan(plan);
@@ -67,6 +71,7 @@ export class RunSession {
     const queue = new TaskQueue(ordered);
 
     // 3. Execute initial tasks
+    tracker?.setPhase("swarm");
     const executionLoop = new ExecutionLoop(
       queue,
       contextSelector,
@@ -78,6 +83,7 @@ export class RunSession {
     await executionLoop.runUntilDrained();
 
     // 4. Fix loop on compiler/test failures
+    tracker?.setPhase("fixer");
     const fixerLoop = new FixerLoop(
       orchestrator,
       executionLoop,
@@ -92,6 +98,7 @@ export class RunSession {
     const outcome = await fixerLoop.run();
 
     // 5. Final report
+    tracker?.setPhase("reviewer");
     const review = new FinalReview(orchestrator);
     const report = await review.write({
       userRequest: this.opts.userRequest,
@@ -126,14 +133,12 @@ export class RunSession {
 }
 
 function buildProjectContext(plan: ProjectPlan): ProjectContext {
-  return {
-    packageManager: "npm",
-    framework: plan.framework,
-    testFramework: "vitest",
-    validationLibrary: "zod",
-    moduleSystem: "esm",
-    strictTypeScript: true,
-  };
+  const ctx: ProjectContext = {};
+  if (plan.projectKind !== undefined) ctx.projectKind = plan.projectKind;
+  if (plan.framework !== undefined) ctx.framework = plan.framework;
+  if (plan.packageManager !== undefined)
+    ctx.packageManager = plan.packageManager;
+  return ctx;
 }
 
 function planToTasks(

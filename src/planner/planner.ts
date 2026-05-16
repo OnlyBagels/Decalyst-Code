@@ -4,7 +4,7 @@ import { OrchestratorError } from "../utils/errors.js";
 import type { ModelClient } from "../models/model-client.js";
 import type { ProjectPlan } from "../types/plan.js";
 
-const PLANNER_SYSTEM_PROMPT = `You are Decalyst-Planner, an expert TypeScript project architect.
+const PLANNER_SYSTEM_PROMPT = `You are an expert software project architect.
 
 Your job is to decompose a user's coding goal into a structured project plan.
 Output JSON only — no markdown, no explanation, no prose.

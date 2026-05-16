@@ -9,10 +9,11 @@ export interface PlannedFile {
 
 export interface ProjectPlan {
   projectName: string;
-  framework: "fastify" | "express" | "hono";
-  packageManager: "npm";
-  dependencies: Record<string, string>;
-  devDependencies: Record<string, string>;
+  projectKind?: string;
+  framework?: string;
+  packageManager?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   files: PlannedFile[];
   constraints: string[];
 }

@@ -1,7 +1,7 @@
 {
   "name": "decalyst-swarm",
   "version": "0.1.0",
-  "description": "Two-agent harness pairing a frontier orchestrator with a local Decalyst-TS worker to generate TypeScript projects from a single prompt.",
+  "description": "Orchestrator + swarm harness: a frontier planner paired with parallel cheap workers. Any OpenAI-compatible backend (mistral.rs, llama.cpp, ollama, OpenRouter, etc.).",
   "type": "module",
   "license": "MIT",
   "author": "OnlyBagels <12b.pittman@gmail.com>",
