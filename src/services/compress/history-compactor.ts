@@ -16,8 +16,13 @@ export interface CompactOptions {
   keepRecent?: number;
 }
 
-const DEFAULT_TARGET_TOKENS = 2000;
-const DEFAULT_KEEP_RECENT = 6;
+// Compact only after history fills roughly 80% of a 128k context window,
+// leaving room for output (up to 64k on deepseek-reasoner) plus system
+// prompts and workspace summary. Matches the threshold Claude Code uses
+// for its auto-compact behavior. Override via CompactOptions when calling
+// against a smaller-context model.
+const DEFAULT_TARGET_TOKENS = 80_000;
+const DEFAULT_KEEP_RECENT = 12;
 
 function countHistoryTokens(messages: ChatMessage[]): number {
   return messages.reduce((sum, m) => sum + countTokens(m.content), 0);
