@@ -10,6 +10,8 @@ export interface ModelCallArgs {
   maxTokens: number;
   /** Label used for usage-tracking attribution (e.g. "planner", "swarm:src/server.ts"). */
   agent?: string;
+  signal?: AbortSignal;
+  onDelta?: (text: string) => void;
 }
 
 export interface ToolSpec {
@@ -44,6 +46,7 @@ export interface CompleteWithToolsArgs {
   maxTokens: number;
   agent?: string;
   toolChoice?: "auto" | "required" | "none";
+  signal?: AbortSignal;
 }
 
 export interface CompleteWithToolsResult {

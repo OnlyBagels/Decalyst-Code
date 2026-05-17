@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { WorkerError } from "../utils/errors.js";
-import type { ModelClient, ChatMessage, CompleteWithToolsArgs, CompleteWithToolsResult } from "./model-client.js";
+import type { ModelClient, ModelCallArgs, ChatMessage, CompleteWithToolsArgs, CompleteWithToolsResult } from "./model-client.js";
 import type { UsageTracker } from "../tui/usage-tracker.js";
 
 export function createSwarmClient(tracker?: UsageTracker): ModelClient {
@@ -26,14 +26,18 @@ export function createSwarmClient(tracker?: UsageTracker): ModelClient {
     model: string,
     jsonMode: boolean,
     agent: string | undefined,
+    signal?: AbortSignal,
   ): Promise<string> {
-    const res = await client.chat.completions.create({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
-    });
+    const res = await client.chat.completions.create(
+      {
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
+      },
+      { signal },
+    );
 
     if (tracker && res.usage) {
       tracker.record({
@@ -52,7 +56,7 @@ export function createSwarmClient(tracker?: UsageTracker): ModelClient {
   }
 
   return {
-    async completeJson({ model, messages, temperature, maxTokens, agent }) {
+    async completeJson({ model, messages, temperature, maxTokens, agent, signal }: ModelCallArgs) {
       return complete(
         messages,
         temperature,
@@ -60,9 +64,10 @@ export function createSwarmClient(tracker?: UsageTracker): ModelClient {
         model ?? defaultModel,
         true,
         agent,
+        signal,
       );
     },
-    async completeText({ model, messages, temperature, maxTokens, agent }) {
+    async completeText({ model, messages, temperature, maxTokens, agent, signal }: ModelCallArgs) {
       return complete(
         messages,
         temperature,
@@ -70,6 +75,7 @@ export function createSwarmClient(tracker?: UsageTracker): ModelClient {
         model ?? defaultModel,
         false,
         agent,
+        signal,
       );
     },
     async completeWithTools(_args: CompleteWithToolsArgs): Promise<CompleteWithToolsResult> {

@@ -30,6 +30,7 @@ export interface RunSessionOptions {
   concurrency: number;
   maxFixRounds: number;
   tracker?: UsageTracker;
+  abortSignal?: AbortSignal;
 }
 
 export class RunSession {
@@ -48,6 +49,8 @@ export class RunSession {
     const orchestrator = createOrchestratorClient(tracker);
     const swarm = createSwarmClient(tracker);
 
+    const signal = this.opts.abortSignal;
+
     const fm = new FileManager(this.opts.workspaceRoot);
     const contextSelector = new ContextSelector(fm, this.opts.workspaceRoot);
     const workerRunner = new WorkerRunner(swarm);
@@ -56,80 +59,115 @@ export class RunSession {
 
     const startedAt = new Date().toISOString();
 
-    // 1. Plan
-    tracker?.setPhase("planner");
-    const planner = new Planner(orchestrator);
-    const plan = await planner.createPlan(this.opts.userRequest);
-    await trace.writePlan(plan);
+    try {
+      // 1. Plan
+      tracker?.setPhase("planner");
+      const planner = new Planner(orchestrator);
+      const plan = await planner.createPlan(this.opts.userRequest, signal);
+      await trace.writePlan(plan);
 
-    // 2. Convert plan into tasks
-    const projectContext = buildProjectContext(plan);
-    const initialTasks = planToTasks(plan, projectContext);
-    const ordered = topologicalSort(initialTasks);
-    await trace.writeTasks(ordered);
+      // 2. Convert plan into tasks
+      const projectContext = buildProjectContext(plan);
+      const initialTasks = planToTasks(plan, projectContext);
+      const ordered = topologicalSort(initialTasks);
+      await trace.writeTasks(ordered);
 
-    const queue = new TaskQueue(ordered);
+      const queue = new TaskQueue(ordered);
 
-    // 3. Execute initial tasks
-    tracker?.setPhase("swarm");
-    const executionLoop = new ExecutionLoop(
-      queue,
-      contextSelector,
-      workerRunner,
-      patchManager,
-      trace,
-      { concurrency: this.opts.concurrency },
-    );
-    await executionLoop.runUntilDrained();
+      // 3. Execute initial tasks
+      tracker?.setPhase("swarm");
+      const executionLoop = new ExecutionLoop(
+        queue,
+        contextSelector,
+        workerRunner,
+        patchManager,
+        trace,
+        { concurrency: this.opts.concurrency },
+      );
+      await executionLoop.runUntilDrained();
 
-    // 4. Fix loop on compiler/test failures
-    tracker?.setPhase("fixer");
-    const fixerLoop = new FixerLoop(
-      orchestrator,
-      executionLoop,
-      queue,
-      npm,
-      trace,
-      {
-        maxRounds: this.opts.maxFixRounds,
-        projectContext,
-      },
-    );
-    const outcome = await fixerLoop.run();
+      // 4. Fix loop on compiler/test failures
+      tracker?.setPhase("fixer");
+      const fixerLoop = new FixerLoop(
+        orchestrator,
+        executionLoop,
+        queue,
+        npm,
+        trace,
+        {
+          maxRounds: this.opts.maxFixRounds,
+          projectContext,
+        },
+      );
+      const outcome = await fixerLoop.run();
 
-    // 5. Final report
-    tracker?.setPhase("reviewer");
-    const review = new FinalReview(orchestrator);
-    const report = await review.write({
-      userRequest: this.opts.userRequest,
-      finalCheck: outcome.finalCheck,
-      passed: outcome.passed,
-      fixRoundsUsed: outcome.rounds,
-      queue,
-    });
-    await trace.writeFinalReport(report);
+      // 5. Final report
+      tracker?.setPhase("reviewer");
+      const review = new FinalReview(orchestrator);
+      const report = await review.write({
+        userRequest: this.opts.userRequest,
+        finalCheck: outcome.finalCheck,
+        passed: outcome.passed,
+        fixRoundsUsed: outcome.rounds,
+        queue,
+      });
+      await trace.writeFinalReport(report);
 
-    const finishedAt = new Date().toISOString();
-    const stats = queue.stats();
-    const applied = queue.all().filter((t) => t.status === "applied");
-    const created = applied.flatMap((t) => t.targetFiles);
+      const finishedAt = new Date().toISOString();
+      const stats = queue.stats();
+      const applied = queue.all().filter((t) => t.status === "applied");
+      const created = applied.flatMap((t) => t.targetFiles);
 
-    return {
-      runId,
-      userRequest: this.opts.userRequest,
-      workspaceRoot: this.opts.workspaceRoot,
-      startedAt,
-      finishedAt,
-      passed: outcome.passed,
-      filesCreated: [...new Set(created)],
-      filesModified: [],
-      totalTasks: queue.all().length,
-      appliedTasks: stats.applied,
-      failedTasks: stats.failed + stats.blocked,
-      fixRoundsUsed: outcome.rounds,
-      finalReport: report,
-    };
+      return {
+        runId,
+        userRequest: this.opts.userRequest,
+        workspaceRoot: this.opts.workspaceRoot,
+        startedAt,
+        finishedAt,
+        passed: outcome.passed,
+        filesCreated: [...new Set(created)],
+        filesModified: [],
+        totalTasks: queue.all().length,
+        appliedTasks: stats.applied,
+        failedTasks: stats.failed + stats.blocked,
+        fixRoundsUsed: outcome.rounds,
+        finalReport: report,
+      };
+    } catch (err) {
+      if (isAbortError(err)) {
+        const finishedAt = new Date().toISOString();
+        const cancelledReport = "cancelled";
+        try {
+          await trace.writeFinalReport(cancelledReport);
+        } catch {
+          // best-effort
+        }
+        return {
+          runId,
+          userRequest: this.opts.userRequest,
+          workspaceRoot: this.opts.workspaceRoot,
+          startedAt,
+          finishedAt,
+          passed: false,
+          filesCreated: [],
+          filesModified: [],
+          totalTasks: 0,
+          appliedTasks: 0,
+          failedTasks: 0,
+          fixRoundsUsed: 0,
+          finalReport: cancelledReport,
+        };
+      }
+      throw err;
+    }
   }
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.name === "AbortError" || err.message.includes("aborted");
+  }
+  return false;
 }
 
 function buildProjectContext(plan: ProjectPlan): ProjectContext {

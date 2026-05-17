@@ -38,7 +38,7 @@ export class WorkerAgent {
     this.maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;
   }
 
-  async run(task: AgentTask): Promise<AgentResult> {
+  async run(task: AgentTask, signal?: AbortSignal): Promise<AgentResult> {
     this.bus.emit({
       t: "worker_started",
       id: task.id,
@@ -53,6 +53,13 @@ export class WorkerAgent {
     ];
 
     const ctrl = new AbortController();
+    if (signal !== undefined) {
+      if (signal.aborted) {
+        ctrl.abort(signal.reason);
+      } else {
+        signal.addEventListener("abort", () => ctrl.abort(signal.reason), { once: true });
+      }
+    }
     const ctx: ToolCtx = {
       workspaceRoot: this.workspaceRoot,
       taskId: task.id,
@@ -65,7 +72,33 @@ export class WorkerAgent {
     };
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
-      const envelope = await this.fetchEnvelope(task.id, messages);
+      if (ctrl.signal.aborted) {
+        this.bus.emit({ t: "worker_finished", id: task.id, status: "blocked" });
+        return {
+          taskId: task.id,
+          role: task.role,
+          status: "cannot_complete",
+          edits: appliedEdits,
+          blockers: ["cancelled"],
+        };
+      }
+
+      let envelope: Envelope | null;
+      try {
+        envelope = await this.fetchEnvelope(task.id, messages, ctrl.signal);
+      } catch (err) {
+        if (isAbortError(err)) {
+          this.bus.emit({ t: "worker_finished", id: task.id, status: "blocked" });
+          return {
+            taskId: task.id,
+            role: task.role,
+            status: "cannot_complete",
+            edits: appliedEdits,
+            blockers: ["cancelled"],
+          };
+        }
+        throw err;
+      }
 
       if (envelope === null) {
         break;
@@ -139,6 +172,7 @@ export class WorkerAgent {
   private async fetchEnvelope(
     taskId: string,
     messages: ChatMessage[],
+    signal?: AbortSignal,
   ): Promise<Envelope | null> {
     let lastError = "";
 
@@ -162,8 +196,10 @@ export class WorkerAgent {
           messages: messagesToSend,
           temperature: 0.1,
           maxTokens: 4000,
+          signal,
         });
       } catch (err) {
+        if (isAbortError(err)) throw err;
         lastError = err instanceof Error ? err.message : String(err);
         continue;
       }
@@ -222,4 +258,11 @@ function isEnvelope(val: unknown): val is Envelope {
   if (val === null || typeof val !== "object") return false;
   const obj = val as Record<string, unknown>;
   return typeof obj["action"] === "string" && typeof obj["args"] === "object" && obj["args"] !== null;
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.name === "AbortError" || err.message.includes("aborted");
+  }
+  return false;
 }

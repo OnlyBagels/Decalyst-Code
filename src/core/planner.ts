@@ -58,7 +58,7 @@ Use the file PATH as the implicit task identifier in "dependsOn".`;
 export class Planner {
   constructor(private readonly client: ModelClient) {}
 
-  async createPlan(userRequest: string): Promise<ProjectPlan> {
+  async createPlan(userRequest: string, signal?: AbortSignal): Promise<ProjectPlan> {
     const raw = await this.client.completeText({
       model: getDefaultOrchestratorModel(),
       agent: "planner",
@@ -71,6 +71,7 @@ export class Planner {
       ],
       temperature: 0.2,
       maxTokens: 4000,
+      signal,
     });
 
     let extracted: unknown;

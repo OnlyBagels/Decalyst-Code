@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { OrchestratorError } from "../utils/errors.js";
 import type {
   ModelClient,
+  ModelCallArgs,
   ChatMessage,
   CompleteWithToolsArgs,
   CompleteWithToolsResult,
@@ -38,13 +39,62 @@ export function createOrchestratorClient(tracker?: UsageTracker): ModelClient {
     maxTokens: number,
     model: string,
     agent: string | undefined,
+    signal?: AbortSignal,
+    onDelta?: (text: string) => void,
   ): Promise<string> {
-    const res = await client.chat.completions.create({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-    });
+    if (onDelta !== undefined) {
+      const stream = await client.chat.completions.create(
+        {
+          model,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          stream: true,
+          stream_options: { include_usage: true },
+        },
+        { signal },
+      );
+
+      let accumulated = "";
+      let promptTokens = 0;
+      let completionTokens = 0;
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          accumulated += delta;
+          onDelta(delta);
+        }
+        if (chunk.usage) {
+          promptTokens = chunk.usage.prompt_tokens ?? 0;
+          completionTokens = chunk.usage.completion_tokens ?? 0;
+        }
+      }
+
+      if (tracker && (promptTokens > 0 || completionTokens > 0)) {
+        tracker.record({
+          agent: agent ?? "orchestrator",
+          model,
+          promptTokens,
+          completionTokens,
+        });
+      }
+
+      if (!accumulated) {
+        throw new OrchestratorError("Orchestrator returned empty response");
+      }
+      return accumulated;
+    }
+
+    const res = await client.chat.completions.create(
+      {
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      },
+      { signal },
+    );
 
     if (tracker && res.usage) {
       tracker.record({
@@ -75,14 +125,17 @@ export function createOrchestratorClient(tracker?: UsageTracker): ModelClient {
       },
     }));
 
-    const res = await client.chat.completions.create({
-      model,
-      messages: args.messages as Parameters<typeof client.chat.completions.create>[0]["messages"],
-      tools: openaiTools,
-      tool_choice: args.toolChoice ?? "auto",
-      temperature: args.temperature,
-      max_tokens: args.maxTokens,
-    });
+    const res = await client.chat.completions.create(
+      {
+        model,
+        messages: args.messages as Parameters<typeof client.chat.completions.create>[0]["messages"],
+        tools: openaiTools,
+        tool_choice: args.toolChoice ?? "auto",
+        temperature: args.temperature,
+        max_tokens: args.maxTokens,
+      },
+      { signal: args.signal },
+    );
 
     if (tracker && res.usage) {
       tracker.record({
@@ -123,11 +176,11 @@ export function createOrchestratorClient(tracker?: UsageTracker): ModelClient {
   }
 
   return {
-    async completeJson({ model, messages, temperature, maxTokens, agent }) {
-      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent);
+    async completeJson({ model, messages, temperature, maxTokens, agent, signal, onDelta }: ModelCallArgs) {
+      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent, signal, onDelta);
     },
-    async completeText({ model, messages, temperature, maxTokens, agent }) {
-      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent);
+    async completeText({ model, messages, temperature, maxTokens, agent, signal, onDelta }: ModelCallArgs) {
+      return complete(messages, temperature, maxTokens, model ?? defaultModel, agent, signal, onDelta);
     },
     completeWithTools,
   };

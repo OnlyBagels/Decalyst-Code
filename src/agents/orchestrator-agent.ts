@@ -43,10 +43,17 @@ export class OrchestratorAgent {
     this.maxTurns = opts.maxTurnsPerMode ?? DEFAULT_MAX_TURNS;
   }
 
-  async run(userRequest: string): Promise<OrchestratorResult> {
+  async run(userRequest: string, signal?: AbortSignal): Promise<OrchestratorResult> {
     await this.modeController.transition("plan");
 
     const ctrl = new AbortController();
+    if (signal !== undefined) {
+      if (signal.aborted) {
+        ctrl.abort(signal.reason);
+      } else {
+        signal.addEventListener("abort", () => ctrl.abort(signal.reason), { once: true });
+      }
+    }
     const ctx: ToolCtx = {
       workspaceRoot: this.workspaceRoot,
       taskId: "orchestrator",
@@ -80,8 +87,12 @@ export class OrchestratorAgent {
           maxTokens: 4096,
           agent: "orchestrator",
           toolChoice: "required",
+          signal: ctrl.signal,
         });
       } catch (err) {
+        if (isAbortError(err)) {
+          return { passed: false, report: "cancelled" };
+        }
         const msg = err instanceof Error ? err.message : String(err);
         return { passed: false, report: `Model call failed: ${msg}` };
       }
@@ -216,6 +227,13 @@ export class OrchestratorAgent {
 
     return { passed: false, report: "Turn limit reached without terminal tool call." };
   }
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.name === "AbortError" || err.message.includes("aborted");
+  }
+  return false;
 }
 
 function extractStringField(args: unknown, field: string): string | undefined {

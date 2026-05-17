@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { loadEnv } from "../utils/load-env.js";
 import { runCommand } from "./commands/run.js";
 import { inspectCommand } from "./commands/inspect.js";
+import { chatCommand } from "./commands/chat.js";
 
 loadEnv();
 
@@ -57,6 +58,24 @@ async function main(): Promise<void> {
     .option("--traces <path>", "Where run traces are stored", "./runs")
     .action(async (runId: string, options) => {
       const code = await inspectCommand(runId, options.traces);
+      process.exit(code);
+    });
+
+  program
+    .command("chat")
+    .description("Interactive REPL — talk to the harness")
+    .option("--workspace <path>", "Workspace directory", "./workspace")
+    .option("--runs <path>", "Where run traces are stored", "./runs")
+    .action(async (opts) => {
+      const code = await chatCommand({ workspace: opts.workspace, runs: opts.runs });
+      process.exit(code);
+    });
+
+  program
+    .option("--workspace <path>", "Workspace directory", "./workspace")
+    .option("--runs <path>", "Where run traces are stored", "./runs")
+    .action(async (opts) => {
+      const code = await chatCommand({ workspace: opts.workspace, runs: opts.runs });
       process.exit(code);
     });
 
