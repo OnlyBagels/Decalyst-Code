@@ -77,7 +77,7 @@ export class FinalReview {
           },
         ],
         temperature: 0.3,
-        maxTokens: 600,
+        maxTokens: 8192,
       });
     } catch (err) {
       intro = `(orchestrator summary unavailable: ${toMessage(err)})`;

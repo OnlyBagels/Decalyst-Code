@@ -79,7 +79,7 @@ export async function runQuery(args: {
         { role: "user", content: currentUserContent },
       ],
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 32768,
       agent: "query",
       onDelta,
     });

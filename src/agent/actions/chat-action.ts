@@ -84,7 +84,7 @@ export async function runChat(args: {
         ...compacted,
       ],
       temperature: 0.7,
-      maxTokens: 2048,
+      maxTokens: 16384,
       agent: "chat",
       onDelta,
     });

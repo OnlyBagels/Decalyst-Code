@@ -54,7 +54,7 @@ export class Planner {
         { role: "user", content: userContent },
       ],
       temperature: 0.2,
-      maxTokens: 4000,
+      maxTokens: 65536,
     });
 
     const extracted = extractJsonObject(raw);

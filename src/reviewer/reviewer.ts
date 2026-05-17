@@ -83,7 +83,7 @@ export class Reviewer {
         { role: "user", content: userContent },
       ],
       temperature: 0.1,
-      maxTokens: 2000,
+      maxTokens: 32768,
     });
 
     const extracted = extractJsonObject(raw);

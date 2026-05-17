@@ -27,7 +27,7 @@ export class ConversationSummarizer {
         { role: "user", content: userContent },
       ],
       temperature: 0.2,
-      maxTokens: 400,
+      maxTokens: 2048,
       agent: "summarizer",
     });
 

@@ -31,7 +31,7 @@ export class WorkerRunner {
             { role: "user", content: userPayload },
           ],
           temperature: 0.1,
-          maxTokens: 6000,
+          maxTokens: 24576,
         });
 
         const extracted = extractJsonObject(raw);

@@ -195,7 +195,7 @@ export class WorkerAgent {
           agent: `swarm:${taskId}`,
           messages: messagesToSend,
           temperature: 0.1,
-          maxTokens: 4000,
+          maxTokens: 24576,
           signal,
         });
       } catch (err) {

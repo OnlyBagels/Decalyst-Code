@@ -91,7 +91,7 @@ export class IntentClassifier {
           { role: "user", content: userContent },
         ],
         temperature: 0,
-        maxTokens: 128,
+        maxTokens: 256,
         agent: "intent-router",
       });
 

@@ -84,7 +84,7 @@ export class OrchestratorAgent {
           messages,
           tools,
           temperature: 0.2,
-          maxTokens: 4096,
+          maxTokens: 65536,
           agent: "orchestrator",
           toolChoice: "required",
           signal: ctrl.signal,

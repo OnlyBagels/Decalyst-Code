@@ -127,7 +127,7 @@ export class FixerLoop {
           { role: "user", content: summary },
         ],
         temperature: 0.2,
-        maxTokens: 4000,
+        maxTokens: 65536,
       });
     } catch (err) {
       console.error(`[fixer] orchestrator request failed: ${toMessage(err)}`);
