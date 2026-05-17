@@ -19,21 +19,27 @@ export interface ChatIntent {
 
 export type Intent = BuildIntent | QueryIntent | ChatIntent;
 
-const INTENT_SYSTEM_PROMPT = `You classify user messages into one of four intents. Output JSON only — no prose, no markdown fences.
+const INTENT_SYSTEM_PROMPT = `You classify user messages into one of four intents for a code-generation harness. Output JSON only — no prose, no markdown fences.
 
 Intents:
-- "build": user wants to create a new project or generate code from scratch
-- "modify": user wants to change, fix, or extend existing code
-- "query": user wants to know something about the workspace or codebase (file contents, structure, status)
-- "chat": pleasantries, clarifications, out-of-scope questions, or anything that doesn't require code work
+- "build": user wants the harness to PRODUCE a new file or project. Any phrasing that names a target file or asks for code/content to be created. Examples: "make me a file called X", "create a Y", "build a Z", "generate", "write me", "I want a", "scaffold", "set up", "add a new file".
+- "modify": user wants to change, fix, edit, or extend something that already exists. Examples: "add a flag", "fix the bug", "refactor X", "update Y", "in that file...", "change Z".
+- "query": user asks about the workspace or files WITHOUT requesting changes. Examples: "what files are here?", "do you see X?", "show me Y", "what's in Z?".
+- "chat": pleasantries, meta-questions about the harness itself, or genuinely off-topic input. Examples: "hello", "thanks", "what can you do?", "are you ok?".
+
+CRITICAL: if the user's message contains a verb like make/create/build/generate/write/produce/scaffold followed by a noun like file/page/script/component/api/project — that is "build" or "modify", NEVER "chat". The chat path cannot produce files; it just talks.
 
 Output schema: { "kind": "build" | "modify" | "query" | "chat", "goal": "<brief restatement of what they want>" }
 
 Examples:
 - "Build me a REST API with Express" → { "kind": "build", "goal": "REST API with Express" }
+- "make me a file test.html, full landing page with hero, nav, footer, 3 cards" → { "kind": "build", "goal": "test.html landing page with hero, nav, footer, and 3 content cards" }
 - "Add authentication to the existing app" → { "kind": "modify", "goal": "add authentication" }
+- "inside that file, add a button" → { "kind": "modify", "goal": "add a button to the previously discussed file" }
 - "What files are in the workspace?" → { "kind": "query", "goal": "list workspace files" }
-- "Thanks!" → { "kind": "chat", "goal": "acknowledgement" }`;
+- "do you see tuitest.html?" → { "kind": "query", "goal": "check whether tuitest.html exists" }
+- "Thanks!" → { "kind": "chat", "goal": "acknowledgement" }
+- "hello" → { "kind": "chat", "goal": "greeting" }`;
 
 export class IntentClassifier {
   private readonly client: ModelClient;

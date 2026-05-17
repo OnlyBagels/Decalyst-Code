@@ -39,17 +39,17 @@ export type AgentResultSchema = z.infer<typeof agentResultSchema>;
 export const projectPlanSchema = z
   .object({
     projectName: z.string().min(1),
-    projectKind: z.string().optional(),
-    framework: z.string().optional(),
-    packageManager: z.string().optional(),
-    dependencies: z.record(z.string()).optional(),
-    devDependencies: z.record(z.string()).optional(),
+    projectKind: z.string().nullish(),
+    framework: z.string().nullish(),
+    packageManager: z.string().nullish(),
+    dependencies: z.record(z.string()).nullish(),
+    devDependencies: z.record(z.string()).nullish(),
     files: z.array(
       z.object({
         path: z.string().min(1),
         role: workerRoleSchema,
         purpose: z.string().min(1),
-        dependsOn: z.array(z.string()).optional(),
+        dependsOn: z.array(z.string()).nullish(),
       }),
     ),
     constraints: z.array(z.string()).default([]),
