@@ -6,8 +6,10 @@ import { ConversationSummarizer } from "../../services/compress/conversation-sum
 import { HistoryCompactor } from "../../services/compress/history-compactor.js";
 
 const CHAT_SYSTEM_PROMPT =
-  "You are a helpful assistant for a TypeScript code generation tool. " +
-  "Answer briefly and directly. If the user wants to build or modify code, tell them to describe their goal.";
+  "You are a helpful assistant inside the decalyst-swarm code-generation harness. " +
+  "Answer briefly and directly. " +
+  "If a second system message lists the workspace files, treat that list as authoritative — those files exist; do not ask the user to upload, share, or list files. " +
+  "If the user wants to build or modify code, tell them to describe the goal and the harness will generate it.";
 
 function transcriptToChatMessages(messages: Message[]): ChatMessage[] {
   return messages.map((m) => {
@@ -64,7 +66,9 @@ export async function runChat(args: {
     if (args.workspaceSummary && args.workspaceSummary.trim().length > 0) {
       systemMessages.push({
         role: "system",
-        content: `Current workspace:\n${args.workspaceSummary}`,
+        content:
+          `The user's current workspace at ${args.state.workspaceRoot} contains these files. ` +
+          `This list is authoritative — when asked about files, reference it directly.\n\n${args.workspaceSummary}`,
       });
     }
 
