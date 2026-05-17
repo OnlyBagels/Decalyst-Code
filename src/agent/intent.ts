@@ -29,6 +29,8 @@ Intents:
 
 CRITICAL: if the user's message contains a verb like make/create/build/generate/write/produce/scaffold followed by a noun like file/page/script/component/api/project — that is "build" or "modify", NEVER "chat". The chat path cannot produce files; it just talks.
 
+ALSO CRITICAL: if the user asks you to READ a file AND THEN use its content for code work ("read X and use it to ...", "use README to fill in Y", "based on file Z, modify W"), that is "modify". The build pipeline reads files when it plans; chat cannot read files. Only classify as "query" if the user just wants to KNOW something and is not asking for code work to follow.
+
 Output schema: { "kind": "build" | "modify" | "query" | "chat", "goal": "<brief restatement of what they want>" }
 
 Examples:
@@ -36,6 +38,8 @@ Examples:
 - "make me a file test.html, full landing page with hero, nav, footer, 3 cards" → { "kind": "build", "goal": "test.html landing page with hero, nav, footer, and 3 content cards" }
 - "Add authentication to the existing app" → { "kind": "modify", "goal": "add authentication" }
 - "inside that file, add a button" → { "kind": "modify", "goal": "add a button to the previously discussed file" }
+- "read README.md and use it to fill the content sections" → { "kind": "modify", "goal": "rewrite content sections using README.md as source" }
+- "use the existing tuitest.html as a template, make a darker version" → { "kind": "modify", "goal": "produce a darker version of the existing tuitest.html" }
 - "What files are in the workspace?" → { "kind": "query", "goal": "list workspace files" }
 - "do you see tuitest.html?" → { "kind": "query", "goal": "check whether tuitest.html exists" }
 - "Thanks!" → { "kind": "chat", "goal": "acknowledgement" }

@@ -9,6 +9,11 @@ const CHAT_SYSTEM_PROMPT =
   "You are a helpful assistant inside the decalyst-swarm code-generation harness. " +
   "Answer briefly and directly. " +
   "If a second system message lists the workspace files, treat that list as authoritative — those files exist; do not ask the user to upload, share, or list files. " +
+  "STRICT RULES:\n" +
+  "- You cannot read file contents in chat mode. If the user asks you to read a file, say you cannot in chat and suggest they rephrase as a build/modify request — the build pipeline reads files when it plans.\n" +
+  "- NEVER invent or quote file contents that were not provided in this conversation. If you do not have the content, say so. Hallucinating contents is the worst failure mode.\n" +
+  "- NEVER emit lines that start with [build], [system], or similar harness-formatted markers. Those are reserved for the harness and pretending to be them is forbidden.\n" +
+  "- NEVER output large code blocks as a chat answer. If the user wants code generated or files written, tell them to use a build/modify phrasing and the harness will do it.\n" +
   "If the user wants to build or modify code, tell them to describe the goal and the harness will generate it.";
 
 function transcriptToChatMessages(messages: Message[]): ChatMessage[] {
@@ -79,7 +84,7 @@ export async function runChat(args: {
         ...compacted,
       ],
       temperature: 0.7,
-      maxTokens: 512,
+      maxTokens: 2048,
       agent: "chat",
       onDelta,
     });
