@@ -112,6 +112,7 @@ export async function chatCommand(opts: ChatCommandOptions): Promise<number> {
       ? (msg) => bus.emit({ t: "transcript_message", message: msg })
       : (msg) => console.log(formatMessage(msg)),
     tracker,
+    bus,
   });
 
   if (useTui) {

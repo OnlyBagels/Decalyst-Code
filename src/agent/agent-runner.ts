@@ -9,6 +9,7 @@ import { handleCommand } from "./actions/command-action.js";
 import { runBuild } from "./actions/build-action.js";
 import { runQuery } from "./actions/query-action.js";
 import { runChat } from "./actions/chat-action.js";
+import type { EventBus } from "../events/bus.js";
 
 export class AgentRunner {
   private readonly state: SessionState;
@@ -20,6 +21,7 @@ export class AgentRunner {
   private readonly runsRoot: string;
   private readonly onMessage: (m: Message) => void;
   private readonly tracker: UsageTracker | undefined;
+  private readonly bus: EventBus | undefined;
 
   constructor(opts: {
     state: SessionState;
@@ -31,6 +33,7 @@ export class AgentRunner {
     runsRoot: string;
     onMessage: (m: Message) => void;
     tracker?: UsageTracker;
+    bus?: EventBus;
   }) {
     this.state = opts.state;
     this.conversation = opts.conversation;
@@ -41,6 +44,7 @@ export class AgentRunner {
     this.runsRoot = opts.runsRoot;
     this.onMessage = opts.onMessage;
     this.tracker = opts.tracker;
+    this.bus = opts.bus;
   }
 
   async handleInput(text: string): Promise<{ exit?: boolean }> {
@@ -74,14 +78,32 @@ export class AgentRunner {
     this.onMessage(userMsg);
     await this.conversation.append(userMsg);
 
+    this.bus?.emit({ t: "mode_change", mode: "plan" });
+
     const classified = await this.intent.classify({
       userMessage: text,
       recentTranscript: this.conversation.history(6),
     });
 
     if (classified.kind === "build" || classified.kind === "modify") {
+      const HISTORY_LIMIT = 8;
+      const priorTurns = this.state.transcript
+        .slice(0, -1)
+        .slice(-HISTORY_LIMIT)
+        .map((m) => {
+          if (m.kind === "user") return `user: ${m.text}`;
+          if (m.kind === "agent") return `agent: ${m.text}`;
+          if (m.kind === "build") return `[build] ${m.line}`;
+          return `[system] ${m.text}`;
+        })
+        .join("\n");
+
+      const enrichedGoal = priorTurns
+        ? `Recent conversation:\n${priorTurns}\n\nCurrent request: ${classified.goal}`
+        : classified.goal;
+
       const session = new RunSession({
-        userRequest: classified.goal,
+        userRequest: enrichedGoal,
         workspaceRoot: this.state.workspaceRoot,
         tracesRoot: this.runsRoot,
         concurrency: 2,
@@ -103,6 +125,7 @@ export class AgentRunner {
         goal: classified.goal,
         runSession: session,
         onMessage: (m) => { void emitAndAppend(m); },
+        bus: this.bus,
       });
 
       this.state.activeRun = null;
@@ -122,7 +145,10 @@ export class AgentRunner {
         client: this.orchestratorClient,
         fileManager: this.fileManager,
         onMessage: (m) => { void emitAndAppend(m); },
+        bus: this.bus,
       });
+
+      this.bus?.emit({ t: "mode_change", mode: "idle" });
       return {};
     }
 
@@ -138,7 +164,10 @@ export class AgentRunner {
       message: chatMsg,
       client: this.orchestratorClient,
       onMessage: (m) => { void emitAndAppend(m); },
+      bus: this.bus,
     });
+
+    this.bus?.emit({ t: "mode_change", mode: "idle" });
     return {};
   }
 }

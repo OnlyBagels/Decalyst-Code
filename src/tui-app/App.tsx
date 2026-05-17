@@ -12,6 +12,7 @@ import { StatusBar } from "./components/StatusBar.js";
 import { LiveRun } from "./components/LiveRun.js";
 import { PermissionModal } from "./components/PermissionModal.js";
 import { AskUserModal } from "./components/AskUserModal.js";
+import { HelpOverlay } from "./components/HelpOverlay.js";
 
 interface Worker {
   id: string;
@@ -56,14 +57,16 @@ export function App({
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
   const [permissionQueue, setPermissionQueue] = useState<PermissionRequest[]>([]);
   const [askUserQueue, setAskUserQueue] = useState<AskUserRequest[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
 
   const ctrlCCount = useRef(0);
   const ctrlCTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useInput((_, key) => {
-    if (key.ctrl && _ === "c") {
+  useInput((input, key) => {
+    if (key.ctrl && input === "c") {
       ctrlCCount.current += 1;
 
       if (ctrlCCount.current === 1) {
@@ -79,6 +82,31 @@ export function App({
         if (ctrlCTimer.current) clearTimeout(ctrlCTimer.current);
         exit();
       }
+      return;
+    }
+
+    if (key.ctrl && input === "l") {
+      setMessages([]);
+      return;
+    }
+
+    if (key.escape) {
+      if (state.activeRun) {
+        state.activeRun.abortController.abort();
+        const now = new Date().toISOString();
+        bus.emit({
+          t: "transcript_message",
+          message: { kind: "system", text: "Run cancelled via Esc.", ts: now },
+        });
+      } else if (inputValue.length > 0) {
+        setInputValue("");
+      }
+      return;
+    }
+
+    if (input === "\x1bOP" || (input === "?" && inputValue === "")) {
+      setShowHelp(true);
+      return;
     }
   });
 
@@ -178,34 +206,44 @@ export function App({
 
   return (
     <Box flexDirection="column" height="100%">
-      {topPermission && (
+      {showHelp && (
+        <HelpOverlay onClose={() => setShowHelp(false)} />
+      )}
+
+      {!showHelp && topPermission && (
         <PermissionModal request={topPermission} onClose={handlePermissionClose} />
       )}
-      {topAskUser && !topPermission && (
+      {!showHelp && topAskUser && !topPermission && (
         <AskUserModal request={topAskUser} onClose={handleAskUserClose} />
       )}
 
-      <Box flexDirection="row" flexGrow={1}>
-        <Box flexDirection="column" flexGrow={1}>
-          <Transcript messages={allMessages} />
-          {isRunning && <LiveRun workers={workers} />}
-        </Box>
-        <StatsPane
-          tracker={tracker}
-          workspace={initialWorkspace}
-          models={models}
-          phase={phase}
-          workers={workers}
-        />
-      </Box>
+      {!showHelp && (
+        <>
+          <Box flexDirection="row" flexGrow={1}>
+            <Box flexDirection="column" flexGrow={1}>
+              <Transcript messages={allMessages} />
+              <LiveRun isRunning={isRunning} workers={workers} />
+            </Box>
+            <StatsPane
+              tracker={tracker}
+              workspace={initialWorkspace}
+              models={models}
+              phase={phase}
+              workers={workers}
+            />
+          </Box>
 
-      <InputBox
-        disabled={isRunning}
-        history={inputHistory}
-        onSubmit={(text) => { void handleSubmit(text); }}
-      />
+          <InputBox
+            disabled={isRunning}
+            history={inputHistory}
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={(text) => { void handleSubmit(text); }}
+          />
 
-      <StatusBar phase={phase} models={models} hint="/help" />
+          <StatusBar phase={phase} models={models} hint="/help or ?" />
+        </>
+      )}
     </Box>
   );
 }

@@ -53,7 +53,9 @@ export type SessionEvent =
       options?: string[];
       resolve: (answer: string) => void;
     }
-  | { t: "run_finished"; passed: boolean };
+  | { t: "run_finished"; passed: boolean }
+  | { t: "transcript_chunk"; messageId: string; deltaText: string }
+  | { t: "transcript_finish"; messageId: string };
 
 export type EventByType<T extends SessionEvent["t"]> = Extract<
   SessionEvent,

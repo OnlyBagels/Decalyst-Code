@@ -21,6 +21,8 @@ interface Props {
   workers: Worker[];
 }
 
+const PANE_WIDTH = 28;
+
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -30,6 +32,16 @@ function formatTokens(n: number): string {
 function formatCost(usd: number): string {
   if (usd < 0.001) return "<$0.001";
   return `$${usd.toFixed(3)}`;
+}
+
+function truncateTail(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return value.slice(0, max - 3) + "...";
+}
+
+function truncateMiddle(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return value.slice(0, 4) + "..." + value.slice(-(max - 7));
 }
 
 export function StatsPane({ tracker, workspace, models, phase, workers }: Props): React.JSX.Element {
@@ -42,14 +54,16 @@ export function StatsPane({ tracker, workspace, models, phase, workers }: Props)
     return unsub;
   }, [tracker]);
 
-  const shortWorkspace = workspace.length > 20
-    ? `...${workspace.slice(-17)}`
-    : workspace;
+  const innerWidth = PANE_WIDTH - 4;
+  const shortWorkspace = truncateMiddle(workspace, innerWidth);
+  const orchModel = models.orchestrator
+    ? truncateTail(models.orchestrator, innerWidth)
+    : undefined;
 
   return (
     <Box
       flexDirection="column"
-      width={24}
+      width={PANE_WIDTH}
       borderStyle="single"
       borderColor={theme.dim}
       paddingX={1}
@@ -66,7 +80,7 @@ export function StatsPane({ tracker, workspace, models, phase, workers }: Props)
         <Text color={theme.dim}>  none</Text>
       ) : (
         workers.map((w) => (
-          <Text key={w.id} color={theme.agent}>{"  "}{w.id}</Text>
+          <Text key={w.id} color={theme.agent}>{"  "}{truncateTail(w.id, innerWidth - 2)}</Text>
         ))
       )}
 
@@ -79,11 +93,11 @@ export function StatsPane({ tracker, workspace, models, phase, workers }: Props)
       <Text color={theme.dim}>cost</Text>
       <Text color={theme.agent}>{"  "}{formatCost(totals.cost)}</Text>
 
-      {models.orchestrator && (
+      {orchModel && (
         <>
           <Text> </Text>
           <Text color={theme.dim}>orch model</Text>
-          <Text color={theme.agent}>{"  "}{models.orchestrator.slice(0, 18)}</Text>
+          <Text color={theme.agent}>{"  "}{orchModel}</Text>
         </>
       )}
 

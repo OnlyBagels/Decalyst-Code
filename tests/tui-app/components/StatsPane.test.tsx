@@ -91,4 +91,40 @@ describe("StatsPane", () => {
     expect(frame).toContain("worker-2");
     unmount();
   });
+
+  it("truncates a long model name with tail truncation", () => {
+    const tracker = makeTracker();
+    const longModel = "anthropic/claude-opus-4-super-extended-edition-v2";
+    const { lastFrame, unmount } = render(
+      <StatsPane
+        tracker={tracker}
+        workspace="/tmp/ws"
+        models={{ orchestrator: longModel }}
+        phase="idle"
+        workers={[]}
+      />,
+    );
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("...");
+    expect(frame).not.toContain(longModel);
+    unmount();
+  });
+
+  it("uses middle truncation for long workspace paths", () => {
+    const tracker = makeTracker();
+    const longPath = "/home/user/projects/very-long-directory-name/another/deep/path/workspace";
+    const { lastFrame, unmount } = render(
+      <StatsPane
+        tracker={tracker}
+        workspace={longPath}
+        models={{}}
+        phase="idle"
+        workers={[]}
+      />,
+    );
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("...");
+    expect(frame).not.toContain(longPath);
+    unmount();
+  });
 });
