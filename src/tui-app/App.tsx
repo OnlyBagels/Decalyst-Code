@@ -86,6 +86,15 @@ export function App({
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
+      bus.on("transcript_message", (e) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.ts === e.message.ts)) return prev;
+          return [...prev, e.message as Message];
+        });
+      }),
+    );
+
+    unsubs.push(
       bus.on("mode_change", (e) => {
         setPhase(e.mode);
       }),

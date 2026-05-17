@@ -10,7 +10,14 @@ export type WorkerFinishStatus = "submitted" | "blocked";
 
 export type PermissionDecision = "auto" | "ask" | "ask-once" | "deny";
 
+export type TranscriptMessage =
+  | { kind: "user"; text: string; ts: string }
+  | { kind: "agent"; text: string; ts: string }
+  | { kind: "build"; line: string; ts: string }
+  | { kind: "system"; text: string; ts: string };
+
 export type SessionEvent =
+  | { t: "transcript_message"; message: TranscriptMessage }
   | { t: "mode_change"; mode: SessionMode }
   | { t: "plan_updated"; plan: unknown }
   | { t: "todo_changed"; todos: unknown[] }

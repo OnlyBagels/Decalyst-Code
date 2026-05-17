@@ -100,7 +100,9 @@ export async function chatCommand(opts: ChatCommandOptions): Promise<number> {
     intent: intentClassifier,
     fileManager,
     runsRoot,
-    onMessage: useTui ? () => {} : (msg) => console.log(formatMessage(msg)),
+    onMessage: useTui
+      ? (msg) => bus.emit({ t: "transcript_message", message: msg })
+      : (msg) => console.log(formatMessage(msg)),
     tracker,
   });
 
