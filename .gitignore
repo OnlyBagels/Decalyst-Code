@@ -23,8 +23,12 @@ workspace/
 test-workspace/
 out/
 
-# Local Claude Code settings (user-specific permissions, never shared)
-.claude/settings.local.json
+# Claude Code local config, skills, worktrees (never shared via repo)
+.claude/
+
+# Repo policy: only README.md is allowed markdown in the tree
+*.md
+!README.md
 
 # Editor and OS
 .vscode/

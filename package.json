@@ -40,11 +40,18 @@
     "lint": "eslint src tests --ext .ts"
   },
   "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@typescript-eslint/typescript-estree": "^8.59.3",
+    "better-sqlite3": "^12.10.0",
+    "chokidar": "^5.0.0",
     "commander": "^12.1.0",
+    "eventemitter3": "^5.0.1",
     "execa": "^9.3.0",
+    "gpt-tokenizer": "^3.4.0",
     "openai": "^4.52.7",
     "prettier": "^3.3.3",
     "typescript": "^5.5.3",
+    "web-tree-sitter": "^0.26.8",
     "zod": "^3.23.8"
   },
   "devDependencies": {
