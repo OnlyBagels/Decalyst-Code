@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     testTimeout: 30000,
     pool: "forks",
     poolOptions: {
@@ -15,5 +15,9 @@ export default defineConfig({
         external: ["gpt-tokenizer"],
       },
     },
+  },
+  esbuild: {
+    jsx: "automatic",
+    jsxImportSource: "react",
   },
 });

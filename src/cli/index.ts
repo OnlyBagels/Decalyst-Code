@@ -66,8 +66,9 @@ async function main(): Promise<void> {
     .description("Interactive REPL — talk to the harness")
     .option("--workspace <path>", "Workspace directory", "./workspace")
     .option("--runs <path>", "Where run traces are stored", "./runs")
+    .option("--no-tui", "Disable the Ink TUI; use readline fallback")
     .action(async (opts) => {
-      const code = await chatCommand({ workspace: opts.workspace, runs: opts.runs });
+      const code = await chatCommand({ workspace: opts.workspace, runs: opts.runs, noTui: opts.tui === false });
       process.exit(code);
     });
 
