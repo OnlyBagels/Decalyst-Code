@@ -1,4 +1,5 @@
 import type { ZodSchema } from "zod";
+import type { Mode } from "../modes/types.js";
 
 export interface UsageTracker {
   record(args: {
@@ -9,7 +10,7 @@ export interface UsageTracker {
   }): void;
 }
 
-export type Mode = "plan" | "execute" | "review" | "idle";
+export type { Mode };
 
 export type ToolEvent =
   | { t: "tool_call_started"; toolName: string; taskId: string | undefined }
