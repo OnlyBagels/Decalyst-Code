@@ -4,8 +4,14 @@ import * as readline from "node:readline/promises";
 import { FileManager } from "../../files/file-manager.js";
 import { UsageTracker } from "../../tui/usage-tracker.js";
 import { EventBus } from "../../events/bus.js";
-import { createOrchestratorClient } from "../../models/orchestrator-client.js";
-import { createSwarmClient } from "../../models/swarm-client.js";
+import {
+  createOrchestratorClient,
+  getDefaultOrchestratorModel,
+} from "../../models/orchestrator-client.js";
+import {
+  createSwarmClient,
+  getDefaultSwarmModel,
+} from "../../models/swarm-client.js";
 import { createSessionState } from "../../agent/session-state.js";
 import { Conversation } from "../../agent/conversation.js";
 import { IntentClassifier } from "../../agent/intent.js";
@@ -75,6 +81,8 @@ export async function chatCommand(opts: ChatCommandOptions): Promise<number> {
   await fs.mkdir(runsRoot, { recursive: true });
 
   const state = createSessionState({ workspaceRoot });
+  state.orchestratorModel = getDefaultOrchestratorModel();
+  state.swarmModel = getDefaultSwarmModel();
   const conversation = new Conversation({ sessionId: state.sessionId, runsRoot });
   const tracker = new UsageTracker();
   const bus = new EventBus();
