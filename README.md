@@ -1,14 +1,16 @@
 # Decalyst-Code
 
-An orchestrator + swarm harness for generating code from a single prompt. A frontier model plans, dispatches, and reviews. A swarm of cheap workers writes files in parallel. The harness owns the filesystem, runs verification commands, and feeds errors back.
+Open-source code-generation harness. A frontier model plans and reviews. A swarm of cheap models writes files in parallel. Works across any language and any OpenAI-compatible backend.
 
-> **Status:** v0.1 — v1 harness works (20/20 unit tests passing). v2 rewrite in progress on `dev`: tool registry, multi-turn orchestrator loop, envelope-based worker tool use, Ink TUI, CodeGraph + Headroom integration. See the roadmap below.
+> **Status:** v0.1 in active development on `dev`. The v1 baseline harness is functional. v2 rewrite landing in waves — tool registry, code intelligence, context compression, mode controller, envelope swarm worker, multi-turn orchestrator, multi-language verify pipeline, and rich tool handlers. 269/269 tests pass at HEAD.
 
 ## Why
 
-Frontier models are smart and expensive. Cheap models — local or remote — are narrow but plentiful. Pair them: the frontier model plans and reviews, the cheap models do the bulk writing in parallel. The harness keeps both honest with snapshots, path policy, and a real verification loop.
+Frontier models are smart and expensive. Cheap models — local or remote — are narrow but plentiful. Pair them: the frontier model plans and reviews, the cheap models do the bulk writing in parallel. The harness owns the filesystem, runs verification commands, and keeps both honest with path policy, snapshots, file locks, and a real test loop.
 
-Works with any OpenAI-compatible backend: mistral.rs, llama.cpp server, ollama, vLLM, OpenRouter, DeepSeek, OpenAI, Together AI, and others. Any language — file type is inferred from the path extension.
+## What it generates
+
+Any language. File type is inferred from the path extension. Verification commands adapt to the project kind detected at the workspace root. Supported project kinds today: TypeScript / JavaScript (Node, tsc, vitest), Python (mypy, pytest, ruff), Rust (cargo check / test / clippy / fmt), Go (go vet, go test, gofmt), Ruby (bundle, rake), and generic — any file the orchestrator can name, the swarm can write.
 
 ## How the pair works
 
@@ -35,10 +37,10 @@ You type a request
        |
        v
   Harness validates JSON,
-  applies edits with snapshots,
-  runs verification commands,
-  feeds errors back to the
-  orchestrator for the next round.
+  applies edits with snapshots
+  + file locks, runs verification
+  commands, feeds errors back
+  to the orchestrator.
 ```
 
 The user sets a hard cap on swarm size. The orchestrator decides how many workers to spawn within that cap.
@@ -52,22 +54,39 @@ git clone https://github.com/OnlyBagels/Decalyst-Code
 cd Decalyst-Code
 npm install
 cp .env.example .env       # add API keys and base URLs
-npm run dev -- run "Build a Fastify TypeScript todo API with Zod and vitest" --workspace ./out
+npm run dev -- run "build a Python CLI that sorts CSVs by column" --workspace ./out
 ```
 
-Example local swarm using mistral.rs:
+Local swarm via mistral.rs:
 
 ```bash
 mistralrs-server --port 1234 plain -m /path/to/your/model
 ```
 
-Or point `SWARM_BASE_URL` at any remote endpoint (OpenRouter, DeepSeek, OpenAI, etc.) using a cheap model.
+Or point `SWARM_BASE_URL` at any remote endpoint (OpenRouter, DeepSeek, OpenAI, Together AI) using a cheap model.
 
 Inspect a finished run:
 
 ```bash
 npm run dev -- inspect 2026-05-16T22-30-14Z
 ```
+
+## Backends
+
+Any OpenAI-compatible endpoint works for both the orchestrator and the swarm. For local models: mistral.rs, llama.cpp server, ollama, vLLM. For remote: OpenRouter, DeepSeek, OpenAI, Anthropic via OpenAI-compatible adapter, Together AI.
+
+The orchestrator uses tool-use (function calling). The swarm uses an envelope JSON protocol so smaller models without native tool-use can participate.
+
+## Permission gates
+
+Every tool call passes through the registry's permission layer. Defaults:
+
+- Read-only (glob, grep, outline, find_symbol, npm_view, pkg_view, peek_signature) — auto-approve
+- File writes (create_file, edit_file) — ask once per file, then remembered for the session
+- Network (web_search, fetch_url, prior_runs_search) — ask each time
+- Command execution (install, build) — ask once per kind; idempotent commands (typecheck, test, lint, format) auto-approve
+
+CLI flag, slash command (`/permissions`), and per-project config can override any default.
 
 ## What gets written
 
@@ -79,51 +98,85 @@ Every run lands in `runs/<run-id>/`:
 - `model-calls/<task>.system.txt`, `.user.txt`, `.response.txt`, `.parsed.json`
 - `patches/<task>.json`
 - `command-results/*.json`
+- `tool-calls/<seq>.json` (audit log)
+- `scratchpad.md` (orchestrator's persistent notes across fixer rounds)
 - `final-report.md`
 
 ## Constraints
 
-- Swarm size hard-capped by `SWARM_CONCURRENCY` (orchestrator dispatches up to this many in parallel)
-- `MAX_FIX_ROUNDS` review-and-fix passes before bailing (default 5)
-- 12k chars of context per worker call
+- Swarm size hard-capped by `SWARM_CONCURRENCY`
+- `MAX_FIX_ROUNDS` review-and-fix passes before bailing
+- File-level locks serialize same-file edits across the swarm
+- Optimistic concurrency via SHA256 catches edits that race the lock
 - Patches snapshot before write and roll back on validation failure
 
 ## Roadmap
 
-v2 rewrite phases (active on `dev`):
+v2 rewrite, active on `dev`:
 
-1. Tool registry and schemas
-2. Worker rewrite (envelope-based tool use, `edit_file` semantics)
-3. Orchestrator rewrite (multi-turn tool-use loop, Opus-4.7-level tool surface)
-4. Mode controller (plan / execute / review)
-5. Rich tools (web_search, npm_view, read_dts, scratchpad, dry_compile) + CodeGraph integration for indexing
-6. Event bus and headless printer
-7. Ink TUI (token meters, phase bar, ask-user modal, log/diff/tool views)
-8. Headroom integration for context compression
-9. End-to-end integration tests
+| Phase | Status |
+|---|---|
+| Tool registry, permission gates, file locks | done |
+| Typed event bus | done |
+| Code intelligence (tree-sitter + SQLite + FTS5; CodeGraph-inspired) | done |
+| Context compression (text/JSON/code/cache-align; Headroom-inspired) | done |
+| Mode controller (plan/execute/review state machine + budgets) | done |
+| Swarm worker envelope loop with 5 tools and edit_file semantics | done |
+| Research tools (web_search, fetch_url, npm/pip/cargo/go view) | done |
+| Inspect tools (glob, grep, read_file, outline, find_symbol, import_graph, read_dts) | done |
+| Verify tools + multi-language command runner | done |
+| Orchestrator multi-turn tool-use loop | in progress |
+| Coordinate, memory, meta tools | in progress |
+| Interactive shell (REPL, intent classifier, slash commands) | planned |
+| Streaming + cancellation | planned |
+| Ink TUI (token meters, phase bar, ask-user modal, log/diff/tool views) | planned |
+| Headless printer (CI mode) | planned |
+| Vendor agent adapters (.claude/, .cursor/, .kiro/ for skills, memory, conventions) | planned |
+| End-to-end integration tests | planned |
 
-`main` only receives merges after a phase verifies end-to-end.
+`main` only receives merges after a phase verifies end-to-end. Active work on `dev`.
 
 ## Project layout
 
-- `src/orchestrator/`, `src/workers/` — agent loops (v1, replaced in Phase 2–3)
-- `src/tools/` — tool registry and handlers (added in Phase 1)
+- `src/agents/` — orchestrator + swarm worker agents
+- `src/tools/` — tool registry, permission gates, file locks, handler modules
+- `src/modes/` — plan / execute / review state machine and budgets
+- `src/services/code-index/` — tree-sitter parsers + SQLite + FTS5 source indexer
+- `src/services/compress/` — deterministic context compression
+- `src/services/{web-client,pkg-client,sandbox-eval}.ts` — research and sandbox utilities
+- `src/events/` — typed event bus
+- `src/runners/` — multi-language command runner, output parsers
 - `src/files/` — path policy, snapshots, hashing
 - `src/patches/` — patch validation and application
-- `src/context/` — repo summary, import graph, token budget
-- `src/runners/` — verification command runner and parsers
-- `src/tui/` — Ink TUI components (added in Phase 7)
+- `src/models/` — OpenAI-compatible orchestrator + swarm model clients
 - `src/traces/` — per-run artifact writer
-- `tests/` — vitest suites
+- `tests/` — vitest suites (269 at HEAD)
+
+The v1 modules under `src/core/`, `src/planner/`, `src/reviewer/`, and `src/workers/worker-runner.ts` stay functional alongside the v2 work until the migration completes.
 
 ## Contributing
 
-Read `CLAUDE.md` first. Two rules matter:
+Two rules matter:
 
 - Writing style follows `github.com/conorbronsdon/avoid-ai-writing`. No marketing voice in comments, commits, or docs.
 - Commits land on `dev`. `main` only receives merges after `npm run typecheck` and `npm test` pass.
 
 Open issues and PRs at `github.com/OnlyBagels/Decalyst-Code`.
+
+## Credits
+
+This project draws design inspiration from two other open-source projects:
+
+- CodeGraph by colbymchenry (MIT) — semantic code indexing, reimplemented natively in TypeScript
+- Headroom by chopratejas (Apache 2.0) — context compression strategies, reimplemented as deterministic native code (no ML inference)
+
+Both were studied for design; no source was copied. Implementations are original.
+
+## Development
+
+Built with significant AI assistance. The v2 rewrite landing on `dev` is produced by a swarm of Claude agents — the same architectural pattern the harness itself implements — coordinated under human review. Design decisions, integration, writing-style enforcement (per `github.com/conorbronsdon/avoid-ai-writing`), and the final approval on every commit are human-driven; bulk file production is automated.
+
+The harness is, in effect, dogfooding the pattern it ships.
 
 ## License
 

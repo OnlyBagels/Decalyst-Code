@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { WorkerError } from "../utils/errors.js";
-import type { ModelClient, ChatMessage } from "./model-client.js";
+import type { ModelClient, ChatMessage, CompleteWithToolsArgs, CompleteWithToolsResult } from "./model-client.js";
 import type { UsageTracker } from "../tui/usage-tracker.js";
 
 export function createSwarmClient(tracker?: UsageTracker): ModelClient {
@@ -71,6 +71,9 @@ export function createSwarmClient(tracker?: UsageTracker): ModelClient {
         false,
         agent,
       );
+    },
+    async completeWithTools(_args: CompleteWithToolsArgs): Promise<CompleteWithToolsResult> {
+      throw new WorkerError("swarm-client does not support tools API");
     },
   };
 }

@@ -12,6 +12,7 @@ const AUTO_TOOLS = new Set<string>([
   "read_dts",
   "scratchpad_read",
   "scratchpad_write",
+  "scratchpad_append",
   "todo_write",
   "todo_update",
   "ask_user",

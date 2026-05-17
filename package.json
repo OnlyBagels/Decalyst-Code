@@ -1,7 +1,7 @@
 {
   "name": "decalyst-swarm",
   "version": "0.1.0",
-  "description": "Orchestrator + swarm harness: a frontier planner paired with parallel cheap workers. Any OpenAI-compatible backend (mistral.rs, llama.cpp, ollama, OpenRouter, etc.).",
+  "description": "Open-source code-generation harness pairing a frontier orchestrator with a swarm of cheap parallel workers. Multi-language, any OpenAI-compatible backend (mistral.rs, llama.cpp, ollama, OpenRouter, DeepSeek, OpenAI, etc.).",
   "type": "module",
   "license": "MIT",
   "author": "OnlyBagels <12b.pittman@gmail.com>",
@@ -16,11 +16,18 @@
   "keywords": [
     "ai",
     "agent",
+    "swarm",
     "code-generation",
-    "typescript",
+    "orchestrator",
+    "multi-language",
     "openrouter",
-    "decalyst",
+    "anthropic",
+    "openai",
+    "deepseek",
     "mistral-rs",
+    "llama-cpp",
+    "ollama",
+    "decalyst",
     "harness"
   ],
   "engines": {

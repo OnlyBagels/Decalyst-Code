@@ -23,8 +23,14 @@ workspace/
 test-workspace/
 out/
 
-# Claude Code local config, skills, worktrees (never shared via repo)
+# Vendor agent config dirs (per-user / per-workspace, not shared via repo)
 .claude/
+.cursor/
+.kiro/
+.copilot/
+.windsurf/
+.continue/
+.cursorrules
 
 # Repo policy: only README.md is allowed markdown in the tree
 *.md
@@ -46,3 +52,4 @@ yarn-error.log*
 # Temp
 tmp/
 temp/
+.tmp-test-*
