@@ -3,11 +3,19 @@ import * as path from "node:path";
 import type { ToolDef, ToolCtx, ToolResult } from "./schemas.js";
 import { PermissionResolver } from "./permissions.js";
 import { FileLocks } from "./locks.js";
+import type { Compressor } from "../services/compress/compressor.js";
+
+const TOOL_OUTPUT_TOKEN_THRESHOLD = 1500;
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
 
 interface RegistryOpts {
   permissions: PermissionResolver;
   locks: FileLocks;
   auditDir?: string;
+  compressor?: Compressor;
 }
 
 export class ToolRegistry {
@@ -70,7 +78,13 @@ export class ToolRegistry {
         durationMs: Date.now() - startedAt,
       });
 
+      // Audit log receives the original result before any compression
       await this.writeAudit(toolName, args, result);
+
+      if (result.ok && this.opts.compressor) {
+        result = await this.maybeCompress(toolName, result);
+      }
+
       return result;
     };
 
@@ -78,6 +92,62 @@ export class ToolRegistry {
       return this.opts.locks.withLock(lockPaths, run);
     }
     return run();
+  }
+
+  private async maybeCompress(toolName: string, result: ToolResult & { ok: true }): Promise<ToolResult> {
+    const compressor = this.opts.compressor!;
+    const data = result.data;
+
+    let payload: string | undefined;
+
+    if (typeof data === "string") {
+      payload = data;
+    } else if (data !== null && typeof data === "object") {
+      const obj = data as Record<string, unknown>;
+      if (typeof obj["content"] === "string") payload = obj["content"];
+      else if (typeof obj["stdout"] === "string") payload = obj["stdout"];
+      else if (typeof obj["text"] === "string") payload = obj["text"];
+    }
+
+    if (payload === undefined || estimateTokens(payload) <= TOOL_OUTPUT_TOKEN_THRESHOLD) {
+      return result;
+    }
+
+    const language = inferLanguage(toolName);
+    const compressed = await compressor.compress({
+      kind: "tool-output",
+      content: payload,
+      language,
+    });
+
+    if (compressed.strategy === "no-op") {
+      return result;
+    }
+
+    const meta = {
+      originalTokens: compressed.originalTokens,
+      compressedTokens: compressed.compressedTokens,
+      strategy: compressed.strategy,
+    };
+
+    let compressedData: unknown;
+
+    if (typeof data === "string") {
+      compressedData = compressed.content;
+    } else {
+      const obj = data as Record<string, unknown>;
+      if (typeof obj["content"] === "string") {
+        compressedData = { ...obj, content: compressed.content, _compression: meta };
+      } else if (typeof obj["stdout"] === "string") {
+        compressedData = { ...obj, stdout: compressed.content, _compression: meta };
+      } else if (typeof obj["text"] === "string") {
+        compressedData = { ...obj, text: compressed.content, _compression: meta };
+      } else {
+        compressedData = data;
+      }
+    }
+
+    return { ok: true, data: compressedData };
   }
 
   listForAgent(agent: "orchestrator" | "swarm" | "both"): ToolDef[] {
@@ -108,4 +178,11 @@ export class ToolRegistry {
     await fs.mkdir(this.opts.auditDir, { recursive: true });
     await fs.writeFile(filename, JSON.stringify(entry, null, 2), "utf8");
   }
+}
+
+function inferLanguage(toolName: string): string | undefined {
+  if (toolName.includes("typescript") || toolName.includes("ts")) return "ts";
+  if (toolName.includes("python") || toolName.includes("py")) return "python";
+  if (toolName.includes("json")) return "json";
+  return undefined;
 }

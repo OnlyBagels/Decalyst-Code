@@ -9,6 +9,7 @@ import { handleCommand } from "./actions/command-action.js";
 import { runBuild } from "./actions/build-action.js";
 import { runQuery } from "./actions/query-action.js";
 import { runChat } from "./actions/chat-action.js";
+import { getRepoSummary, formatRepoSummaryForPrompt } from "../context/repo-summary.js";
 import type { EventBus } from "../events/bus.js";
 
 export class AgentRunner {
@@ -80,9 +81,18 @@ export class AgentRunner {
 
     this.bus?.emit({ t: "mode_change", mode: "plan" });
 
+    let workspaceSummary = "";
+    try {
+      const summary = await getRepoSummary(this.fileManager, this.state.workspaceRoot);
+      workspaceSummary = formatRepoSummaryForPrompt(summary);
+    } catch {
+      workspaceSummary = `Workspace root: ${this.state.workspaceRoot}`;
+    }
+
     const classified = await this.intent.classify({
       userMessage: text,
       recentTranscript: this.conversation.history(6),
+      workspaceSummary,
     });
 
     if (classified.kind === "build" || classified.kind === "modify") {
@@ -165,6 +175,7 @@ export class AgentRunner {
       client: this.orchestratorClient,
       onMessage: (m) => { void emitAndAppend(m); },
       bus: this.bus,
+      workspaceSummary,
     });
 
     this.bus?.emit({ t: "mode_change", mode: "idle" });

@@ -62,7 +62,7 @@ export async function handleCommand(
   if (cmd === "/clear") {
     return {
       messages: [sys("Transcript cleared.")],
-      mutations: { transcript: [] },
+      mutations: { transcript: [], conversationSummary: undefined },
     };
   }
 

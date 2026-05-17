@@ -19,6 +19,8 @@ interface Props {
   models: Models;
   phase: string;
   workers: Worker[];
+  messageCount?: number;
+  summaryActive?: boolean;
 }
 
 const PANE_WIDTH = 28;
@@ -44,7 +46,7 @@ function truncateMiddle(value: string, max: number): string {
   return value.slice(0, 4) + "..." + value.slice(-(max - 7));
 }
 
-export function StatsPane({ tracker, workspace, models, phase, workers }: Props): React.JSX.Element {
+export function StatsPane({ tracker, workspace, models, phase, workers, messageCount, summaryActive }: Props): React.JSX.Element {
   const [totals, setTotals] = useState(() => tracker.totals());
 
   useEffect(() => {
@@ -104,6 +106,17 @@ export function StatsPane({ tracker, workspace, models, phase, workers }: Props)
       <Text> </Text>
       <Text color={theme.dim}>workspace</Text>
       <Text color={theme.agent}>{"  "}{shortWorkspace}</Text>
+
+      {messageCount !== undefined && (
+        <>
+          <Text> </Text>
+          <Text color={theme.dim}>context</Text>
+          <Text>{"  "}<Text color={theme.dim}>msgs </Text><Text color={theme.agent}>{messageCount}</Text></Text>
+          {summaryActive && (
+            <Text color={theme.dim}>{"  "}summarized</Text>
+          )}
+        </>
+      )}
     </Box>
   );
 }

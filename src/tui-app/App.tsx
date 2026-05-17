@@ -230,6 +230,8 @@ export function App({
               models={models}
               phase={phase}
               workers={workers}
+              messageCount={allMessages.length}
+              summaryActive={state.conversationSummary !== undefined}
             />
           </Box>
 

@@ -13,6 +13,7 @@ export interface SessionState {
   inputHistory: string[];
   activeRun: { startedAt: number; abortController: AbortController } | null;
   permissionDecisions: Map<string, "auto" | "ask" | "ask-once" | "deny">;
+  conversationSummary?: { upToIndex: number; text: string };
 }
 
 export function createSessionState(opts: { workspaceRoot: string }): SessionState {
