@@ -1,4 +1,5 @@
 import type { ModelClient } from "../../models/model-client.js";
+import { getDefaultOrchestratorModel } from "../../models/orchestrator-client.js";
 import type { Message, SessionState } from "../session-state.js";
 
 const CHAT_SYSTEM_PROMPT =
@@ -12,7 +13,7 @@ export async function runChat(args: {
   onMessage: (m: Message) => void;
 }): Promise<void> {
   const now = () => new Date().toISOString();
-  const model = args.state.orchestratorModel ?? "anthropic/claude-sonnet-4.6";
+  const model = args.state.orchestratorModel ?? getDefaultOrchestratorModel();
 
   try {
     const reply = await args.client.completeText({

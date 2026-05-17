@@ -1,4 +1,5 @@
 import type { ModelClient } from "../models/model-client.js";
+import { getDefaultOrchestratorModel } from "../models/orchestrator-client.js";
 import type { Message } from "./session-state.js";
 
 export interface BuildIntent {
@@ -70,7 +71,7 @@ export class IntentClassifier {
       `Classify this message: ${args.userMessage}`,
     ].join("\n\n");
 
-    const model = this.model ?? "anthropic/claude-sonnet-4.6";
+    const model = this.model ?? getDefaultOrchestratorModel();
 
     try {
       const raw = await this.client.completeJson({

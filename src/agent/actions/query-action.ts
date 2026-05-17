@@ -1,6 +1,7 @@
 import { getRepoSummary, formatRepoSummaryForPrompt } from "../../context/repo-summary.js";
 import { FileManager } from "../../files/file-manager.js";
 import type { ModelClient } from "../../models/model-client.js";
+import { getDefaultOrchestratorModel } from "../../models/orchestrator-client.js";
 import type { Message, SessionState } from "../session-state.js";
 
 const QUERY_SYSTEM_PROMPT =
@@ -15,7 +16,7 @@ export async function runQuery(args: {
   onMessage: (m: Message) => void;
 }): Promise<void> {
   const now = () => new Date().toISOString();
-  const model = args.state.orchestratorModel ?? "anthropic/claude-sonnet-4.6";
+  const model = args.state.orchestratorModel ?? getDefaultOrchestratorModel();
 
   let workspaceSummary = "";
   try {
