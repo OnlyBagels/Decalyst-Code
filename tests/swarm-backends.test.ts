@@ -1,0 +1,56 @@
+import { describe, it, expect } from "vitest";
+import { loadBackends } from "../src/models/swarm-backends.js";
+
+describe("loadBackends", () => {
+  it("loads numbered backend groups for a multi-provider swarm", () => {
+    const backends = loadBackends({
+      SWARM_BACKEND_1_NAME: "deepseek",
+      SWARM_BACKEND_1_BASE_URL: "https://api.deepseek.com",
+      SWARM_BACKEND_1_API_KEY: "ds-key",
+      SWARM_BACKEND_1_MODEL: "deepseek-v4-flash",
+      SWARM_BACKEND_1_CONCURRENCY: "8",
+      SWARM_BACKEND_1_THINKING: "disabled",
+      SWARM_BACKEND_2_NAME: "mimo",
+      SWARM_BACKEND_2_BASE_URL: "https://token-plan-sgp.xiaomimimo.com/v1",
+      SWARM_BACKEND_2_API_KEY: "mimo-key",
+      SWARM_BACKEND_2_MODEL: "mimo-v2.5",
+      SWARM_BACKEND_2_CONCURRENCY: "6",
+    } as NodeJS.ProcessEnv);
+
+    expect(backends).toHaveLength(2);
+    expect(backends.map((b) => b.name)).toEqual(["deepseek", "mimo"]);
+    expect(backends[0]?.model).toBe("deepseek-v4-flash");
+    expect(backends[0]?.concurrency).toBe(8);
+    expect(backends[0]?.thinkingParams).toEqual({ thinking: { type: "disabled" } });
+    expect(backends[1]?.baseURL).toBe("https://token-plan-sgp.xiaomimimo.com/v1");
+    expect(backends[1]?.concurrency).toBe(6);
+    // thinking unset -> provider default (no param sent)
+    expect(backends[1]?.thinkingParams).toEqual({});
+  });
+
+  it("falls back to the legacy single SWARM_* backend", () => {
+    const backends = loadBackends({
+      SWARM_BASE_URL: "https://api.deepseek.com",
+      SWARM_API_KEY: "k",
+      SWARM_MODEL: "deepseek-v4-flash",
+      SWARM_THINKING: "disabled",
+    } as NodeJS.ProcessEnv);
+
+    expect(backends).toHaveLength(1);
+    expect(backends[0]?.name).toBe("swarm");
+    expect(backends[0]?.model).toBe("deepseek-v4-flash");
+  });
+
+  it("returns empty when nothing is configured", () => {
+    expect(loadBackends({} as NodeJS.ProcessEnv)).toEqual([]);
+  });
+
+  it("defaults concurrency to 8 when unset or invalid", () => {
+    const backends = loadBackends({
+      SWARM_BACKEND_1_BASE_URL: "https://x/v1",
+      SWARM_BACKEND_1_MODEL: "m",
+    } as NodeJS.ProcessEnv);
+    expect(backends[0]?.concurrency).toBe(8);
+    expect(backends[0]?.name).toBe("backend-1");
+  });
+});

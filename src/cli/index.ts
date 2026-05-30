@@ -4,6 +4,7 @@ import { loadEnv } from "../utils/load-env.js";
 import { runCommand } from "./commands/run.js";
 import { inspectCommand } from "./commands/inspect.js";
 import { chatCommand } from "./commands/chat.js";
+import { swarmExecCommand } from "./commands/swarm-exec.js";
 
 loadEnv();
 
@@ -47,6 +48,47 @@ async function main(): Promise<void> {
         traces: options.traces,
         concurrency: options.concurrency,
         maxFixRounds: options.maxFixRounds,
+      });
+      process.exit(code);
+    });
+
+  program
+    .command("swarm-exec")
+    .description(
+      'Execute a plan from an external orchestrator. Example: decalyst-swarm swarm-exec --plan plan.json --workspace ./out --verify',
+    )
+    .requiredOption(
+      "--plan <path>",
+      'Path to a ProjectPlan JSON file, or "-" to read from stdin',
+    )
+    .option(
+      "--workspace <path>",
+      "Workspace directory to write files into",
+      "./workspace",
+    )
+    .option("--traces <path>", "Where run traces are stored", "./runs")
+    .option("--out <path>", "Also write the result JSON to this file")
+    .option(
+      "--verify",
+      "Run install/typecheck/test after the swarm and include results",
+      false,
+    )
+    .option("--json", "Print the result JSON to stdout", false)
+    .option(
+      "--concurrency <n>",
+      "Max parallel workers",
+      (v) => Number.parseInt(v, 10),
+      Number.parseInt(process.env["DECALYST_CONCURRENCY"] ?? "4", 10),
+    )
+    .action(async (options) => {
+      const code = await swarmExecCommand({
+        plan: options.plan,
+        workspace: options.workspace,
+        traces: options.traces,
+        out: options.out,
+        verify: Boolean(options.verify),
+        json: Boolean(options.json),
+        concurrency: options.concurrency,
       });
       process.exit(code);
     });

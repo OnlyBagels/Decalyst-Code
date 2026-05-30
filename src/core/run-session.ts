@@ -170,7 +170,7 @@ function isAbortError(err: unknown): boolean {
   return false;
 }
 
-function buildProjectContext(plan: ProjectPlan): ProjectContext {
+export function buildProjectContext(plan: ProjectPlan): ProjectContext {
   const ctx: ProjectContext = {};
   if (plan.projectKind !== undefined) ctx.projectKind = plan.projectKind;
   if (plan.framework !== undefined) ctx.framework = plan.framework;
@@ -179,7 +179,7 @@ function buildProjectContext(plan: ProjectPlan): ProjectContext {
   return ctx;
 }
 
-function planToTasks(
+export function planToTasks(
   plan: ProjectPlan,
   projectContext: ProjectContext,
 ): AgentTask[] {

@@ -12,8 +12,16 @@ import { safeStringify } from "../utils/json.js";
 
 const MAX_WORKER_RETRIES = 2;
 
-export class WorkerRunner {
-  constructor(private readonly client: ModelClient) {}
+/** Anything that can turn a task into an applied-edit result. */
+export interface TaskWorker {
+  run(task: AgentTask): Promise<AgentResult>;
+}
+
+export class WorkerRunner implements TaskWorker {
+  constructor(
+    private readonly client: ModelClient,
+    private readonly model?: string,
+  ) {}
 
   async run(task: AgentTask): Promise<AgentResult> {
     const systemPrompt = buildSystemPrompt(task);
@@ -24,7 +32,7 @@ export class WorkerRunner {
     for (let attempt = 0; attempt <= MAX_WORKER_RETRIES; attempt++) {
       try {
         const raw = await this.client.completeJson({
-          model: getDefaultSwarmModel(),
+          model: this.model ?? getDefaultSwarmModel(),
           agent: `swarm:${task.id}`,
           messages: [
             { role: "system", content: systemPrompt },

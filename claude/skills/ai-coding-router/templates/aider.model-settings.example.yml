@@ -1,0 +1,27 @@
+# Aider per-model settings. Copy to ~/.aider.model.settings.yml (user-level) and adjust.
+# Docs: https://aider.chat/docs/config/adv-model-settings.html
+#
+# These models are reached through the OpenAI-compatible endpoint, so Aider sees them as
+# "openai/<model-id>". The base URL + key are supplied at launch by the run-aider-* scripts
+# via OPENAI_API_BASE / OPENAI_API_KEY — NOT stored here. Never put a key in this file.
+#
+# edit_format options: "diff" (reviewable unified diffs, preferred for bakeoffs),
+# "whole" (full-file rewrites, safer for weaker models), "udiff".
+
+- name: openai/deepseek-v4-flash
+  edit_format: diff
+  use_repo_map: true
+  examples_as_sys_msg: true
+
+- name: openai/deepseek-v4-pro
+  edit_format: diff
+  use_repo_map: true
+  examples_as_sys_msg: true
+
+- name: openai/mimo-v2.5
+  edit_format: whole        # start "whole" for the smaller challenger; switch to diff once trusted
+  use_repo_map: true
+
+- name: openai/mimo-v2.5-pro
+  edit_format: diff
+  use_repo_map: true
