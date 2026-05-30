@@ -29,7 +29,7 @@ const reviewResultSchema = z.object({
     .default([]),
 });
 
-const REVIEWER_SYSTEM_PROMPT = `You are Decalyst-Reviewer, a senior TypeScript code reviewer.
+const REVIEWER_SYSTEM_PROMPT = `You are a senior code reviewer.
 
 You receive the user's original goal and the files the coding swarm produced.
 Evaluate whether the code correctly and completely fulfills the goal.
@@ -83,7 +83,7 @@ export class Reviewer {
         { role: "user", content: userContent },
       ],
       temperature: 0.1,
-      maxTokens: 2000,
+      maxTokens: 32768,
     });
 
     const extracted = extractJsonObject(raw);

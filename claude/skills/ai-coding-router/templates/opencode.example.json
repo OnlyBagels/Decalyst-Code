@@ -1,0 +1,48 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "//": "Default worker model. Change with /models in the TUI or per-launch via the run-* scripts.",
+  "model": "deepseek/deepseek-v4-flash",
+
+  "provider": {
+    "//deepseek": "DeepSeek is recognized natively by OpenCode (models.dev). This block is only needed to pin custom model IDs or override the base URL. The API key comes from `opencode auth login` or DEEPSEEK_API_KEY — never put it here.",
+    "deepseek": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DeepSeek",
+      "options": {
+        "baseURL": "https://api.deepseek.com/v1"
+      },
+      "models": {
+        "deepseek-v4-flash": { "name": "DeepSeek V4 Flash" },
+        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro" }
+      }
+    },
+
+    "//mimo": "MiMo via OpenAI-compatible. Base URL is read from the MIMO_BASE_URL env var so it is never hardcoded. Key comes from MIMO_API_KEY (or `opencode auth login` for a custom provider). Verify the model IDs against MiMo's /models before spending credits.",
+    "mimo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "MiMo",
+      "options": {
+        "baseURL": "{env:MIMO_BASE_URL}",
+        "apiKey": "{env:MIMO_API_KEY}"
+      },
+      "models": {
+        "mimo-v2.5": { "name": "MiMo V2.5" },
+        "mimo-v2.5-pro": { "name": "MiMo V2.5-Pro" }
+      }
+    },
+
+    "//local": "OPTIONAL local OpenAI-compatible server (llama.cpp / Ollama / vLLM / LM Studio). Uncomment and set baseURL + the model id your server exposes. No API key needed for most local servers; use a dummy if the SDK requires one.",
+    "local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local",
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "local"
+      },
+      "models": {
+        "local-coder": { "name": "Local Coder" }
+      }
+    }
+  }
+}

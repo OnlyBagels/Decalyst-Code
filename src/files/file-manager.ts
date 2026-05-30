@@ -110,10 +110,15 @@ async function walk(
 }
 
 function globToRegex(pattern: string): RegExp {
+  // `**/` matches zero or more path segments (including the empty prefix), so
+  // `**/*.ts` matches both `main.ts` and `src/lib/main.ts`. Standalone `**`
+  // matches anything across slashes. A single `*` matches non-slash chars.
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*\//g, "%%DOUBLESTAR_SLASH%%")
     .replace(/\*\*/g, "%%DOUBLESTAR%%")
     .replace(/\*/g, "[^/]*")
+    .replace(/%%DOUBLESTAR_SLASH%%/g, "(?:.*/)?")
     .replace(/%%DOUBLESTAR%%/g, ".*");
   return new RegExp(`^${escaped}$`);
 }

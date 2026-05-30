@@ -8,11 +8,23 @@ export interface TokenBudget {
   maxContextFiles: number;
 }
 
+/**
+ * Worker context budget. DeepSeek V4 and MiMo V2.5 carry 1M-token windows, so
+ * the worker can hold the full contract plus every dependency file without
+ * truncation. Sized targeted-generous (~30k tokens), not to the whole window:
+ * the selector pulls only relevant files, and stuffing more dilutes attention.
+ * Raise via env for the pro / long-context tier.
+ */
 export function defaultBudget(): TokenBudget {
   return {
-    maxInputChars: 12_000,
-    maxContextFiles: 4,
+    maxInputChars: envInt("SWARM_MAX_INPUT_CHARS", 120_000),
+    maxContextFiles: envInt("SWARM_MAX_CONTEXT_FILES", 24),
   };
+}
+
+function envInt(name: string, fallback: number): number {
+  const n = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 /** Truncate content to stay within a char budget, appending a note. */

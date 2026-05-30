@@ -1,0 +1,177 @@
+#!/usr/bin/env node
+// 3-model final-review panel. Sends a diff to the PRO backends (DeepSeek V4 Pro +
+// MiMo V2.5-Pro) from the decalyst repo's .env and prints each model's findings.
+// Opus (you) is the third reviewer: read both, add your own pass, reconcile. A
+// finding >=2 of 3 agree on is real; you make the final call.
+//
+// Spends API credits — run only when reviewing real work.
+//   git diff | node review-panel.mjs
+//   node review-panel.mjs --input changes.diff
+import { readFileSync, existsSync } from "node:fs";
+import * as path from "node:path";
+
+const args = parse(process.argv.slice(2));
+const decalyst = resolveDecalyst();
+const env = parseEnv(path.join(decalyst, ".env"));
+
+function resolveDecalyst() {
+  if (process.env["DECALYST_DIR"]) return process.env["DECALYST_DIR"];
+  if (existsSync(path.join(process.cwd(), "src/cli/index.ts"))) return process.cwd();
+  return "C:/Users/Administrator/Desktop/decalyst-swarm";
+}
+// The review committee: every backend flagged SWARM_BACKEND_n_REVIEW=true (as many
+// as you like). Falls back to the pro tier when none are flagged.
+const withKeys = loadBackends(env).filter((b) => b.apiKey);
+const flagged = withKeys.filter((b) => b.review);
+const pros = flagged.length > 0 ? flagged : withKeys.filter((b) => b.tier === "pro");
+
+if (pros.length === 0) {
+  console.error(
+    "no review backends with keys in .env. Flag reviewers with SWARM_BACKEND_n_REVIEW=true (or configure a pro tier). Set DECALYST_DIR if the repo is elsewhere.",
+  );
+  process.exit(1);
+}
+
+const SYS =
+  "You are a senior code reviewer reviewing a large multi-file change produced by a " +
+  "swarm of coding agents. You are given the ORIGINAL PLAN AND CONTRACT the code was " +
+  "built against, then the DIFFS. Review in this order: (1) DRIFT from the plan/contract " +
+  "— files whose types, method or field names, import paths, or export names do not " +
+  "match the agreed contract, or that redefine a shared type instead of importing it; " +
+  "(2) cross-file integration bugs (wrong imports, mismatched signatures); (3) correctness " +
+  "bugs; (4) security; (5) convention violations. For each finding give: file, what is " +
+  "wrong, severity (high/med/low). Report only real findings; if none, say 'no issues " +
+  "found'. Be specific and terse, no preamble.";
+
+(async () => {
+  const planText = args.plan ? safeRead(path.resolve(args.plan)) : "";
+  const diff = args.input
+    ? readFileSync(path.resolve(args.input), "utf8")
+    : await readStdin();
+  if (!diff.trim()) {
+    console.error("no diff provided (pipe `git diff` or pass --input <file>)");
+    process.exit(2);
+  }
+
+  const results = await Promise.all(
+    pros.map(async (b) => {
+      try {
+        return { b, text: await review(b, planText, diff) };
+      } catch (e) {
+        return { b, text: `(review failed: ${String(e).slice(0, 200)})` };
+      }
+    }),
+  );
+
+  for (const { b, text } of results) {
+    console.log(`\n===== ${b.name} (${b.model}) =====`);
+    console.log(text.trim());
+  }
+  console.log("\n===== panel =====");
+  console.log(
+    "Opus: read both reviews, add your own pass, reconcile. A finding 2+ of 3 agree on is real; you make the final call.",
+  );
+})();
+
+async function review(backend, planText, diff) {
+  const parts = [];
+  if (planText.trim()) {
+    parts.push(
+      "ORIGINAL PLAN AND CONTRACT (what the code was supposed to be):\n\n" + planText,
+    );
+  }
+  // Reviewers have 1M-token windows; send the whole change. Cap only as a
+  // runaway guard (~500k tokens), leaving room for the plan and the output.
+  parts.push("DIFFS / CODE TO REVIEW:\n\n" + truncate(diff, 2_000_000));
+
+  const body = {
+    model: backend.model,
+    messages: [
+      { role: "system", content: SYS },
+      { role: "user", content: parts.join("\n\n---\n\n") },
+    ],
+    max_tokens: 16000,
+    ...backend.thinking,
+  };
+  const res = await fetch(`${backend.baseURL.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${backend.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const j = await res.json();
+  return j.choices?.[0]?.message?.content || "(empty response)";
+}
+
+function loadBackends(env) {
+  const out = [];
+  for (let n = 1; n <= 24; n++) {
+    const p = `SWARM_BACKEND_${n}_`;
+    if (!env[`${p}BASE_URL`]) continue;
+    if (["false", "0", "no", "off", "disabled"].includes((env[`${p}ENABLED`] || "").toLowerCase())) continue;
+    const mode = (env[`${p}THINKING`] || "").toLowerCase();
+    let thinking = {};
+    if (["enabled", "on", "true"].includes(mode)) {
+      thinking = { thinking: { type: "enabled" } };
+      if (env[`${p}REASONING_EFFORT`]) thinking.reasoning_effort = env[`${p}REASONING_EFFORT`];
+    } else if (["disabled", "off", "false"].includes(mode)) {
+      thinking = { thinking: { type: "disabled" } };
+    }
+    out.push({
+      name: env[`${p}NAME`] || `backend-${n}`,
+      baseURL: env[`${p}BASE_URL`],
+      apiKey: env[`${p}API_KEY`] || "",
+      model: env[`${p}MODEL`] || "default",
+      tier: (env[`${p}TIER`] || "bulk").toLowerCase(),
+      review: ["true", "1", "yes", "on", "enabled"].includes((env[`${p}REVIEW`] || "").toLowerCase()),
+      thinking,
+    });
+  }
+  return out;
+}
+
+function parseEnv(p) {
+  const e = {};
+  try {
+    for (const line of readFileSync(p, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m) e[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    /* no .env */
+  }
+  return e;
+}
+
+function readStdin() {
+  return new Promise((r) => {
+    let d = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (c) => (d += c));
+    process.stdin.on("end", () => r(d));
+  });
+}
+
+function safeRead(p) {
+  try {
+    return readFileSync(p, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function truncate(s, n) {
+  return s.length <= n ? s : s.slice(0, n) + "\n...[truncated]";
+}
+
+function parse(argv) {
+  const o = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith("--")) o[a.slice(2)] = argv[++i];
+  }
+  return o;
+}

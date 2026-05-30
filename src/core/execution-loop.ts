@@ -1,7 +1,7 @@
 import { runWithConcurrency } from "../utils/concurrency.js";
 import { TaskQueue } from "./task-queue.js";
 import { ContextSelector } from "../context/context-selector.js";
-import { WorkerRunner } from "../workers/worker-runner.js";
+import type { TaskWorker } from "../workers/worker-runner.js";
 import { PatchManager } from "../patches/patch-manager.js";
 import { TraceWriter } from "../traces/trace-writer.js";
 import { toMessage } from "../utils/errors.js";
@@ -15,7 +15,7 @@ export class ExecutionLoop {
   constructor(
     private readonly queue: TaskQueue,
     private readonly contextSelector: ContextSelector,
-    private readonly workerRunner: WorkerRunner,
+    private readonly workerRunner: TaskWorker,
     private readonly patchManager: PatchManager,
     private readonly trace: TraceWriter,
     private readonly opts: ExecutionLoopOptions,

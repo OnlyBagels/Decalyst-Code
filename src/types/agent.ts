@@ -65,12 +65,13 @@ export interface FileEdit {
 }
 
 export interface ProjectContext {
-  packageManager: "npm" | "pnpm" | "yarn";
-  framework?: "fastify" | "express" | "hono";
-  testFramework?: "vitest" | "jest" | "node-test";
-  validationLibrary?: "zod";
-  moduleSystem: "esm" | "cjs";
-  strictTypeScript: boolean;
+  projectKind?: string;
+  packageManager?: string;
+  framework?: string;
+  testFramework?: string;
+  validationLibrary?: string;
+  moduleSystem?: "esm" | "cjs";
+  strictTypeScript?: boolean;
 }
 
 export interface TaskLimits {
@@ -86,11 +87,15 @@ export interface AgentTask {
   targetFiles: string[];
   fileContexts: FileContext[];
   constraints: string[];
+  /** Shared contract, placed in the stable system-prompt prefix for cache hits. */
+  contract?: string;
   projectContext: ProjectContext;
   compilerErrors?: CompilerError[];
   testResults?: TestResult[];
   limits: TaskLimits;
   dependencies: string[];
+  /** Concrete file paths this task depends on, for context (the deps' files). */
+  dependencyFiles?: string[];
   status: TaskStatus;
   attempt: number;
   failureReason?: string;

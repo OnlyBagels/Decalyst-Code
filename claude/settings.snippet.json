@@ -1,0 +1,15 @@
+{
+  "//": "Merge this into the \"hooks\" object of your ~/.claude/settings.json. Replace <YOUR_HOME> with your home dir (e.g. C:/Users/you or /home/you). The hook fires on implementation-intent prompts and injects the ai-coding-router routing reminder. It never blocks.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<YOUR_HOME>/.claude/skills/ai-coding-router/hooks/route-implementation.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

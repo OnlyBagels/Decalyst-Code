@@ -11,7 +11,10 @@ export const MAX_FILES_PER_ROLE: Record<WorkerRole, number> = {
   "docs-worker": 1,
 };
 
-export const MAX_OUTPUT_CHARS_DEFAULT = 40_000;
+export const MAX_OUTPUT_CHARS_DEFAULT = Math.max(
+  40_000,
+  Number.parseInt(process.env["SWARM_MAX_OUTPUT_CHARS"] ?? "", 10) || 120_000,
+);
 
 /** Infer a worker role from a target file path. */
 export function inferWorkerRole(filePath: string): WorkerRole {
