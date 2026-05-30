@@ -6,7 +6,7 @@ import {
   getRoleInstruction,
 } from "./worker-prompts.js";
 import { getDefaultSwarmModel } from "../models/swarm-client.js";
-import type { ModelClient } from "../models/model-client.js";
+import type { ModelClient, ChatMessage } from "../models/model-client.js";
 import type { AgentTask, AgentResult } from "../types/agent.js";
 import { safeStringify } from "../utils/json.js";
 
@@ -29,20 +29,22 @@ export class WorkerRunner implements TaskWorker {
   ) {}
 
   async run(task: AgentTask): Promise<AgentResult> {
-    const systemPrompt = buildSystemPrompt(task);
-    const userPayload = buildUserPayload(task);
+    // System + contract come first and are identical across the run, so the
+    // provider caches that prefix; the per-task payload follows.
+    const messages: ChatMessage[] = [
+      { role: "system", content: buildSystemPrompt(task) },
+      { role: "user", content: buildUserPayload(task) },
+    ];
 
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= MAX_WORKER_RETRIES; attempt++) {
+      let raw = "";
       try {
-        const raw = await this.client.completeJson({
+        raw = await this.client.completeJson({
           model: this.model ?? getDefaultSwarmModel(),
           agent: `swarm:${task.id}`,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPayload },
-          ],
+          messages,
           temperature: 0.1,
           maxTokens: MAX_OUTPUT_TOKENS,
         });
@@ -61,7 +63,13 @@ export class WorkerRunner implements TaskWorker {
       } catch (err) {
         lastError = err;
         if (attempt < MAX_WORKER_RETRIES) {
-          // Brief wait before retry (no sleep needed per spec — just retry)
+          // Corrective retry: show the model what it returned and what was wrong
+          // so it fixes the JSON, instead of blindly resampling the same prompt.
+          if (raw) messages.push({ role: "assistant", content: raw.slice(0, 4000) });
+          messages.push({
+            role: "user",
+            content: `That response was not accepted: ${toMessage(err)}. Reply again with ONLY the corrected JSON object matching the schema — no prose, no code fences, and escape all newlines and quotes inside string values.`,
+          });
           continue;
         }
       }
@@ -75,9 +83,15 @@ export class WorkerRunner implements TaskWorker {
 }
 
 function buildSystemPrompt(task: AgentTask): string {
-  return [SHARED_WORKER_SYSTEM_PROMPT, "", getRoleInstruction(task.role)].join(
-    "\n",
-  );
+  const parts = [SHARED_WORKER_SYSTEM_PROMPT, ""];
+  if (task.contract) {
+    parts.push(
+      `SHARED CONTRACT — import these exact names, never redefine them:\n${task.contract}`,
+      "",
+    );
+  }
+  parts.push(getRoleInstruction(task.role));
+  return parts.join("\n");
 }
 
 function buildUserPayload(task: AgentTask): string {

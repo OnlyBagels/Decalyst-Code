@@ -13,10 +13,15 @@ import { ExecutionLoop } from "./execution-loop.js";
 import { topologicalSort } from "../utils/concurrency.js";
 import { buildProjectContext, planToTasks } from "./run-session.js";
 import { safeStringify } from "../utils/json.js";
+import { UsageTracker } from "../tui/usage-tracker.js";
+import { MAX_OUTPUT_CHARS_DEFAULT } from "../workers/worker-roles.js";
 import type { ModelClient } from "../models/model-client.js";
 import type { ProjectPlan } from "../types/plan.js";
-import type { AgentTask, CompilerError } from "../types/agent.js";
-import type { UsageTracker } from "../tui/usage-tracker.js";
+import type {
+  AgentTask,
+  CompilerError,
+  ProjectContext,
+} from "../types/agent.js";
 
 export interface ExecPlanOptions {
   plan: ProjectPlan;
@@ -26,9 +31,20 @@ export interface ExecPlanOptions {
   verify: boolean;
   /** Worker tier to run: "bulk" (default) or "pro". */
   tier?: string;
+  /** Automated fix-loop rounds on verify errors (default 2; 0 to disable). */
+  maxFixRounds?: number;
   /** Inject a worker client (tests). Defaults to the configured swarm client. */
   swarmClient?: ModelClient;
   tracker?: UsageTracker;
+}
+
+export interface ExecUsage {
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHitTokens: number;
+  costUsd: number;
+  elapsedMs: number;
 }
 
 export interface ExecVerifyResult {
@@ -60,6 +76,9 @@ export interface ExecPlanResult {
   failed: ExecTaskFailure[];
   blocked: ExecTaskFailure[];
   verify: ExecVerifyResult | null;
+  /** Automated fix-loop rounds spent clearing verify errors. */
+  fixRounds: number;
+  usage: ExecUsage;
 }
 
 const MAX_OUTPUT_CHARS = 4000;
@@ -80,6 +99,9 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
   await trace.writePlan(opts.plan);
 
   await fs.mkdir(opts.workspaceRoot, { recursive: true });
+
+  const startedAt = Date.now();
+  const tracker = opts.tracker ?? new UsageTracker();
 
   const fm = new FileManager(opts.workspaceRoot);
   const contextSelector = new ContextSelector(fm, opts.workspaceRoot);
@@ -103,10 +125,7 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
         `no worker backends configured for tier "${tier}". Set SWARM_BACKEND_n_* with TIER=${tier} (see .env.example).`,
       );
     }
-    const pool = new WorkerPool(
-      backends,
-      opts.tracker ? { tracker: opts.tracker } : {},
-    );
+    const pool = new WorkerPool(backends, { tracker });
     worker = pool;
     concurrency = pool.totalConcurrency;
     backendNames = pool.backendNames;
@@ -128,19 +147,45 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
   await loop.runUntilDrained();
   queue.cascadeBlocked();
 
+  let verify: ExecVerifyResult | null = opts.verify
+    ? await runVerify(opts.workspaceRoot, trace)
+    : null;
+
+  // Automated fix-loop: feed tsc errors back to fixer workers, each with every
+  // applied file as read-only context, until the project is clean or rounds run
+  // out. The workers fix their own files; no orchestrator model is involved.
+  let fixRounds = 0;
+  const maxFixRounds = opts.maxFixRounds ?? 2;
+  while (verify && !verify.passed && fixRounds < maxFixRounds) {
+    const fixTasks = buildFixTasks(
+      verify,
+      appliedFiles(queue),
+      opts.plan,
+      projectContext,
+      fixRounds + 1,
+    );
+    if (fixTasks.length === 0) break;
+    fixRounds += 1;
+    for (const t of fixTasks) queue.add(t);
+    await loop.runUntilDrained();
+    queue.cascadeBlocked();
+    verify = await runVerify(opts.workspaceRoot, trace);
+  }
+
   const all = queue.all();
-  const applied = [
-    ...new Set(
-      all.filter((t) => t.status === "applied").flatMap((t) => t.targetFiles),
-    ),
-  ];
+  const applied = appliedFiles(queue);
   const failed = all.filter((t) => t.status === "failed").map(toFailure);
   const blocked = all.filter((t) => t.status === "blocked").map(toFailure);
 
-  let verify: ExecVerifyResult | null = null;
-  if (opts.verify) {
-    verify = await runVerify(opts.workspaceRoot, trace);
-  }
+  const tot = tracker.totals();
+  const usage: ExecUsage = {
+    calls: tot.calls,
+    promptTokens: tot.promptTokens,
+    completionTokens: tot.completionTokens,
+    cacheHitTokens: tot.cacheHitTokens,
+    costUsd: Number(tot.cost.toFixed(4)),
+    elapsedMs: Date.now() - startedAt,
+  };
 
   const result: ExecPlanResult = {
     runId,
@@ -152,6 +197,8 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
     failed,
     blocked,
     verify,
+    fixRounds,
+    usage,
   };
 
   await fs.writeFile(
@@ -162,6 +209,64 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
   await trace.writeFinalReport(buildReport(result));
 
   return result;
+}
+
+function appliedFiles(queue: TaskQueue): string[] {
+  return [
+    ...new Set(
+      queue
+        .all()
+        .filter((t) => t.status === "applied")
+        .flatMap((t) => t.targetFiles),
+    ),
+  ];
+}
+
+/**
+ * Turns verify (tsc) errors into fixer tasks — one per applied file that has
+ * errors, with every other applied file as read-only context so the worker
+ * reads the real interfaces instead of guessing.
+ */
+function buildFixTasks(
+  verify: ExecVerifyResult,
+  applied: string[],
+  plan: ProjectPlan,
+  projectContext: ProjectContext,
+  round: number,
+): AgentTask[] {
+  const byFile = new Map<string, CompilerError[]>();
+  for (const e of verify.errors) {
+    if (!e.filePath || !applied.includes(e.filePath)) continue;
+    const arr = byFile.get(e.filePath);
+    if (arr) arr.push(e);
+    else byFile.set(e.filePath, [e]);
+  }
+
+  const tasks: AgentTask[] = [];
+  for (const [file, errs] of byFile) {
+    tasks.push({
+      id: `fix-r${round}-${file}`,
+      role: "fixer",
+      title: `Fix ${file}`,
+      goal:
+        `Fix these TypeScript errors in ${file}. Do not change its public API ` +
+        `or any other file; import the real names from the files in context.\n` +
+        errs
+          .map((e) => `- line ${e.line ?? "?"}: ${e.code ?? ""} ${e.message}`)
+          .join("\n"),
+      targetFiles: [file],
+      fileContexts: [],
+      constraints: plan.constraints,
+      ...(plan.contract ? { contract: plan.contract } : {}),
+      projectContext,
+      dependencyFiles: applied.filter((p) => p !== file),
+      limits: { maxFilesToEdit: 1, maxOutputChars: MAX_OUTPUT_CHARS_DEFAULT },
+      dependencies: [],
+      status: "pending",
+      attempt: 0,
+    });
+  }
+  return tasks;
 }
 
 function toFailure(t: AgentTask): ExecTaskFailure {
@@ -208,6 +313,15 @@ function buildReport(result: ExecPlanResult): string {
   if (result.verify) {
     lines.push(`Verify:        ${result.verify.passed ? "passed" : "failed"}`);
   }
+  lines.push(`Fix rounds:    ${result.fixRounds}`);
+  const u = result.usage;
+  const hitRate =
+    u.promptTokens > 0
+      ? Math.round((u.cacheHitTokens / u.promptTokens) * 100)
+      : 0;
+  lines.push(
+    `Usage:         ${u.calls} calls, ${u.promptTokens} in / ${u.completionTokens} out, ${hitRate}% cache, $${u.costUsd.toFixed(4)}, ${Math.round(u.elapsedMs / 1000)}s`,
+  );
   return lines.join("\n") + "\n";
 }
 

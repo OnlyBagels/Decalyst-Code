@@ -80,6 +80,12 @@ async function main(): Promise<void> {
     )
     .option("--json", "Print the result JSON to stdout", false)
     .option(
+      "--max-fix-rounds <n>",
+      "Automated fix-loop rounds on verify errors (0 to disable)",
+      (v) => Number.parseInt(v, 10),
+      2,
+    )
+    .option(
       "--concurrency <n>",
       "Max parallel workers",
       (v) => Number.parseInt(v, 10),
@@ -95,6 +101,7 @@ async function main(): Promise<void> {
         verify: Boolean(options.verify),
         json: Boolean(options.json),
         concurrency: options.concurrency,
+        maxFixRounds: options.maxFixRounds,
       });
       process.exit(code);
     });

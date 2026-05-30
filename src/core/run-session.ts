@@ -179,6 +179,15 @@ export function buildProjectContext(plan: ProjectPlan): ProjectContext {
   return ctx;
 }
 
+/** The shared contract as a broadcast constraint (empty when none). */
+export function contractConstraints(plan: ProjectPlan): string[] {
+  return plan.contract
+    ? [
+        `SHARED CONTRACT — import these exact names, never redefine them:\n${plan.contract}`,
+      ]
+    : [];
+}
+
 export function planToTasks(
   plan: ProjectPlan,
   projectContext: ProjectContext,
@@ -196,11 +205,6 @@ export function planToTasks(
     if (arr) arr.push(f);
     else groups.set(g, [f]);
   }
-
-  // The contract is broadcast to every worker as a high-priority constraint.
-  const contractConstraint = plan.contract
-    ? [`SHARED CONTRACT — import these exact names, never redefine them:\n${plan.contract}`]
-    : [];
 
   const tasks: AgentTask[] = [];
   for (const [groupId, files] of groups) {
@@ -243,7 +247,8 @@ export function planToTasks(
       goal,
       targetFiles,
       fileContexts: [],
-      constraints: [...contractConstraint, ...plan.constraints],
+      constraints: plan.constraints,
+      ...(plan.contract ? { contract: plan.contract } : {}),
       projectContext,
       limits: {
         maxFilesToEdit: Math.min(8, Math.max(files.length, MAX_FILES_PER_ROLE[role])),

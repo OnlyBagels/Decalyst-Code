@@ -87,6 +87,8 @@ export interface AgentTask {
   targetFiles: string[];
   fileContexts: FileContext[];
   constraints: string[];
+  /** Shared contract, placed in the stable system-prompt prefix for cache hits. */
+  contract?: string;
   projectContext: ProjectContext;
   compilerErrors?: CompilerError[];
   testResults?: TestResult[];

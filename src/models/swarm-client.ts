@@ -55,11 +55,17 @@ export function createOpenAICompatibleClient(
     );
 
     if (cfg.tracker && res.usage) {
+      const usage = res.usage as {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_cache_hit_tokens?: number;
+      };
       cfg.tracker.record({
         agent: agent ?? cfg.agentLabel ?? "swarm",
         model,
-        promptTokens: res.usage.prompt_tokens ?? 0,
-        completionTokens: res.usage.completion_tokens ?? 0,
+        promptTokens: usage.prompt_tokens ?? 0,
+        completionTokens: usage.completion_tokens ?? 0,
+        cacheHitTokens: usage.prompt_cache_hit_tokens ?? 0,
       });
     }
 

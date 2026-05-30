@@ -6,6 +6,7 @@ export interface AgentUsage {
   calls: number;
   promptTokens: number;
   completionTokens: number;
+  cacheHitTokens: number; // prompt tokens served from the provider cache
   lastPromptTokens: number; // for "ctx used on last call"
   cost: number;
 }
@@ -13,6 +14,7 @@ export interface AgentUsage {
 export interface UsageTotals {
   promptTokens: number;
   completionTokens: number;
+  cacheHitTokens: number;
   cost: number;
   calls: number;
 }
@@ -52,8 +54,10 @@ export class UsageTracker {
     model: string;
     promptTokens: number;
     completionTokens: number;
+    cacheHitTokens?: number;
   }): void {
     const existing = this.agents.get(args.agent);
+    const cacheHits = args.cacheHitTokens ?? 0;
     const cost = computeCost(
       args.model,
       args.promptTokens,
@@ -64,6 +68,7 @@ export class UsageTracker {
       existing.calls += 1;
       existing.promptTokens += args.promptTokens;
       existing.completionTokens += args.completionTokens;
+      existing.cacheHitTokens += cacheHits;
       existing.lastPromptTokens = args.promptTokens;
       existing.cost += cost;
       // Update model in case a later call uses a different one
@@ -75,6 +80,7 @@ export class UsageTracker {
         calls: 1,
         promptTokens: args.promptTokens,
         completionTokens: args.completionTokens,
+        cacheHitTokens: cacheHits,
         lastPromptTokens: args.promptTokens,
         cost,
       });
@@ -89,15 +95,17 @@ export class UsageTracker {
   totals(): UsageTotals {
     let promptTokens = 0;
     let completionTokens = 0;
+    let cacheHitTokens = 0;
     let cost = 0;
     let calls = 0;
     for (const a of this.agents.values()) {
       promptTokens += a.promptTokens;
       completionTokens += a.completionTokens;
+      cacheHitTokens += a.cacheHitTokens;
       cost += a.cost;
       calls += a.calls;
     }
-    return { promptTokens, completionTokens, cost, calls };
+    return { promptTokens, completionTokens, cacheHitTokens, cost, calls };
   }
 
   /** Context utilization on the agent's most recent call, as fraction 0..1. */

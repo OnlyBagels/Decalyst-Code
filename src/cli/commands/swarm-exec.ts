@@ -14,6 +14,7 @@ export interface SwarmExecCommandOptions {
   json: boolean;
   out?: string;
   tier?: string;
+  maxFixRounds?: number;
 }
 
 /**
@@ -44,6 +45,9 @@ export async function swarmExecCommand(
       concurrency: opts.concurrency,
       verify: opts.verify,
       ...(opts.tier ? { tier: opts.tier } : {}),
+      ...(opts.maxFixRounds !== undefined
+        ? { maxFixRounds: opts.maxFixRounds }
+        : {}),
     });
 
     const json = JSON.stringify(result, null, 2);
@@ -97,6 +101,8 @@ function printHuman(result: ExecPlanResult): void {
     result.verify
       ? `verify:        ${result.verify.passed ? "passed" : "failed"}`
       : "verify:        skipped",
+    `fix rounds:    ${result.fixRounds}`,
+    `usage:         ${result.usage.calls} calls, ${result.usage.cacheHitTokens}/${result.usage.promptTokens} cached, $${result.usage.costUsd.toFixed(4)}, ${Math.round(result.usage.elapsedMs / 1000)}s`,
   ];
   console.log(lines.join("\n"));
 }

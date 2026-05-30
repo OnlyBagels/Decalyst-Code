@@ -46,9 +46,9 @@ describe("planToTasks grouping + contract", () => {
       "src/types.ts",
     ]);
 
-    // contract is broadcast into every task's constraints
-    expect(data.constraints.some((c) => c.includes("store exposes list/get"))).toBe(true);
-    expect(routes.constraints.some((c) => c.includes("store exposes list/get"))).toBe(true);
+    // contract is on every task (placed in the cached system-prompt prefix)
+    expect(data.contract).toContain("store exposes list/get");
+    expect(routes.contract).toContain("store exposes list/get");
   });
 
   it("adds plan.contextFiles to every task as read-only context (not deps)", () => {

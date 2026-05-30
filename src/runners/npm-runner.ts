@@ -32,6 +32,15 @@ export class NpmRunner {
     }
   }
 
+  private async hasNodeModules(): Promise<boolean> {
+    try {
+      await fs.access(path.join(this.workspaceRoot, "node_modules"));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Runs the standard MVP check sequence: install → format → typecheck → test.
    * Stops as soon as install fails. Skips entirely when no package.json exists
@@ -44,10 +53,13 @@ export class NpmRunner {
 
     const results: TestResult[] = [];
 
-    const install = await this.runner.run("npm_install");
-    results.push(install);
-    if (!install.passed) {
-      return { results, compilerErrors: [], passed: false };
+    // Skip install when node_modules already exists (fix-loop rounds reuse it).
+    if (!(await this.hasNodeModules())) {
+      const install = await this.runner.run("npm_install");
+      results.push(install);
+      if (!install.passed) {
+        return { results, compilerErrors: [], passed: false };
+      }
     }
 
     results.push(await this.runner.run("format"));
