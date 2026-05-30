@@ -146,4 +146,59 @@ describe("execPlan (external orchestrator)", () => {
     expect(result.applied).toHaveLength(0);
     expect(result.failed).toHaveLength(1);
   });
+
+  it("retries a failed group via the fix-loop and recovers it", async () => {
+    const workspaceRoot = await tmp("swarm-exec-ws-");
+    const tracesRoot = await tmp("swarm-exec-runs-");
+    const plan = parseProjectPlan({
+      projectName: "demo",
+      files: [{ path: "src/a.ts", purpose: "module a" }],
+      constraints: [],
+    });
+
+    let calls = 0;
+    const flaky: ModelClient = {
+      async completeJson({ messages }) {
+        calls += 1;
+        const payload = parsePayload(messages as { role: string; content: string }[]);
+        if (calls === 1) {
+          // first attempt fails outright (one-off bad sample)
+          return JSON.stringify({
+            taskId: payload.taskId,
+            role: payload.role,
+            status: "cannot_complete",
+            edits: [],
+            blockers: ["flaky"],
+          });
+        }
+        return JSON.stringify({
+          taskId: payload.taskId,
+          role: payload.role,
+          status: "success",
+          edits: [{ mode: "create", path: payload.targetFiles[0], fullContent: "export const value = 1;\n" }],
+          blockers: [],
+        });
+      },
+      async completeText() {
+        throw new Error("unused");
+      },
+      async completeWithTools() {
+        throw new Error("unused");
+      },
+    };
+
+    const result = await execPlan({
+      plan,
+      workspaceRoot,
+      tracesRoot,
+      concurrency: 1,
+      verify: false,
+      maxFixRounds: 2,
+      swarmClient: flaky,
+    });
+
+    expect(result.fixRounds).toBeGreaterThanOrEqual(1);
+    expect(result.applied).toContain("src/a.ts");
+    expect(result.failed).toHaveLength(0);
+  });
 });
