@@ -35,10 +35,14 @@ export function loadBackends(
 ): BackendConfig[] {
   const backends: BackendConfig[] = [];
 
-  for (let n = 1; ; n++) {
+  // Scan a fixed range so gaps are allowed: comment a backend out (or set
+  // SWARM_BACKEND_n_ENABLED=false) and the rest still load.
+  const MAX_BACKENDS = 24;
+  for (let n = 1; n <= MAX_BACKENDS; n++) {
     const prefix = `SWARM_BACKEND_${n}_`;
     const baseURL = env[`${prefix}BASE_URL`];
-    if (!baseURL) break;
+    if (!baseURL) continue;
+    if (isDisabled(env[`${prefix}ENABLED`])) continue;
 
     backends.push({
       name: env[`${prefix}NAME`] ?? `backend-${n}`,
@@ -58,7 +62,7 @@ export function loadBackends(
 
   // Legacy single-backend fallback.
   const baseURL = env["SWARM_BASE_URL"] ?? env["DECALYST_BASE_URL"];
-  if (!baseURL) return [];
+  if (!baseURL || isDisabled(env["SWARM_ENABLED"])) return [];
 
   return [
     {
@@ -85,6 +89,13 @@ export function backendsForTier(
 ): BackendConfig[] {
   const want = tier.toLowerCase();
   return loadBackends(env).filter((b) => b.tier === want);
+}
+
+/** A backend is off when its ENABLED value is explicitly falsey. */
+function isDisabled(raw: string | undefined): boolean {
+  if (raw === undefined) return false;
+  const v = raw.trim().toLowerCase();
+  return v === "false" || v === "0" || v === "no" || v === "off" || v === "disabled";
 }
 
 function parseConcurrency(raw: string | undefined): number {

@@ -70,4 +70,34 @@ describe("loadBackends", () => {
     expect(backendsForTier("pro", env).map((b) => b.name)).toEqual(["deepseek-pro"]);
     expect(backendsForTier("nope", env)).toEqual([]);
   });
+
+  it("skips disabled backends and tolerates numbering gaps", () => {
+    const backends = loadBackends({
+      SWARM_BACKEND_1_NAME: "a",
+      SWARM_BACKEND_1_BASE_URL: "https://a/v1",
+      SWARM_BACKEND_1_MODEL: "ma",
+      SWARM_BACKEND_2_NAME: "b",
+      SWARM_BACKEND_2_BASE_URL: "https://b/v1",
+      SWARM_BACKEND_2_MODEL: "mb",
+      SWARM_BACKEND_2_ENABLED: "false",
+      // no backend 3 — a gap
+      SWARM_BACKEND_4_NAME: "d",
+      SWARM_BACKEND_4_BASE_URL: "https://d/v1",
+      SWARM_BACKEND_4_MODEL: "md",
+    } as NodeJS.ProcessEnv);
+    // b is disabled, the gap at 3 is tolerated
+    expect(backends.map((b) => b.name)).toEqual(["a", "d"]);
+  });
+
+  it("a custom OpenAI-compatible endpoint loads like any other backend", () => {
+    const backends = loadBackends({
+      SWARM_BACKEND_1_NAME: "openrouter",
+      SWARM_BACKEND_1_BASE_URL: "https://openrouter.ai/api/v1",
+      SWARM_BACKEND_1_API_KEY: "sk-or-test",
+      SWARM_BACKEND_1_MODEL: "qwen/qwen-2.5-coder-32b-instruct",
+    } as NodeJS.ProcessEnv);
+    expect(backends).toHaveLength(1);
+    expect(backends[0]?.baseURL).toBe("https://openrouter.ai/api/v1");
+    expect(backends[0]?.apiKey).toBe("sk-or-test");
+  });
 });
