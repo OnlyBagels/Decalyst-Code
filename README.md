@@ -2,7 +2,7 @@
 
 Open-source code-generation harness. A frontier model plans and reviews. A swarm of cheap models writes files in parallel. Works across any language and any OpenAI-compatible backend.
 
-> **Status:** v0.1 in active development on `dev`. The v1 baseline harness is functional. v2 rewrite landing in waves — tool registry, code intelligence, context compression, mode controller, envelope swarm worker, multi-turn orchestrator, multi-language verify pipeline, and rich tool handlers. 269/269 tests pass at HEAD.
+> **Status:** active development. The harness runs two ways: a self-contained run where an in-repo frontier model plans and reviews, and `swarm-exec`, where an external orchestrator (Claude Code or any agent) owns planning and review and uses the swarm as the engine. The `swarm-exec` path adds multi-backend tiers, contract-first plans, file grouping, an automated fix-loop, and per-run telemetry. 500+ tests pass.
 
 ## Why
 
@@ -44,6 +44,39 @@ You type a request
 ```
 
 The user sets a hard cap on swarm size. The orchestrator decides how many workers to spawn within that cap.
+
+## Driving it from an external orchestrator (`swarm-exec`)
+
+The orchestrator does not have to be a model this repo spawns. `swarm-exec` lets an
+external agent (Claude Code, or any tool that can write a file and run a command) own the
+planning and review, and use the swarm purely as the engine:
+
+```bash
+# the agent writes plan.json, then:
+npm run dev -- swarm-exec --plan plan.json --workspace ./out --verify
+# -> writes ./out, runs verify, prints result.json: applied/failed/blocked/verify/usage
+```
+
+The plan is a JSON contract the agent authors. Three things keep a multi-file build from
+drifting:
+
+- **A `contract`** — the canonical types and exact module signatures, broadcast to every
+  worker (and cached as a shared prompt prefix). Workers import these names; they never
+  redefine them.
+- **`group`** — coupled files (a type plus its store plus its test) are written by one
+  worker in a single shot, so their shared seam agrees by construction.
+- **`dependsOn`** — the real dependency DAG. Independent groups run in parallel; the rest
+  wait. Workers receive their dependency files as read-only context.
+
+Workers run across one or more **tiers** of backends at once. `--tier bulk` (the default)
+uses the cheap models for volume; `--tier pro` uses stronger models for the hard files.
+After the swarm, `--verify` runs typecheck and tests, and an automated fix-loop feeds the
+errors back and retries failed or blocked groups until the project is clean or the round
+budget runs out. Every run reports tokens, cache-hit rate, cost, and time.
+
+The `claude/` folder ships a portable copy of the routing skill and a `swarm-build` skill
+that drive this flow from Claude Code. See `claude/README.md` and `.env.example` for the
+tiered backend setup.
 
 ## Quickstart
 
