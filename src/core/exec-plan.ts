@@ -151,25 +151,38 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
     ? await runVerify(opts.workspaceRoot, trace)
     : null;
 
-  // Automated fix-loop: feed tsc errors back to fixer workers, each with every
-  // applied file as read-only context, until the project is clean or rounds run
-  // out. The workers fix their own files; no orchestrator model is involved.
+  // Automated fix-loop. Two kinds of recovery, no orchestrator model involved:
+  //  - retry failed/blocked groups (reset them to pending so the swarm re-runs
+  //    them — a fresh sample usually clears a one-off bad file or unblocks the
+  //    downstream group),
+  //  - feed tsc errors back to fixer workers, each with every applied file as
+  //    read-only context so they fix against the real interfaces.
+  // Loops until the project is clean or the round budget runs out.
   let fixRounds = 0;
   const maxFixRounds = opts.maxFixRounds ?? 2;
-  while (verify && !verify.passed && fixRounds < maxFixRounds) {
-    const fixTasks = buildFixTasks(
-      verify,
-      appliedFiles(queue),
-      opts.plan,
-      projectContext,
-      fixRounds + 1,
-    );
-    if (fixTasks.length === 0) break;
+  while (fixRounds < maxFixRounds) {
+    const stuck = queue
+      .all()
+      .filter((t) => t.status === "failed" || t.status === "blocked");
+    const tscFixers =
+      verify && !verify.passed
+        ? buildFixTasks(
+            verify,
+            appliedFiles(queue),
+            opts.plan,
+            projectContext,
+            fixRounds + 1,
+          )
+        : [];
+    if (stuck.length === 0 && tscFixers.length === 0) break;
+
     fixRounds += 1;
-    for (const t of fixTasks) queue.add(t);
+    for (const t of stuck) queue.setStatus(t.id, "pending");
+    for (const t of tscFixers) queue.add(t);
+
     await loop.runUntilDrained();
     queue.cascadeBlocked();
-    verify = await runVerify(opts.workspaceRoot, trace);
+    verify = opts.verify ? await runVerify(opts.workspaceRoot, trace) : null;
   }
 
   const all = queue.all();

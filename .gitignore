@@ -53,3 +53,7 @@ yarn-error.log*
 tmp/
 temp/
 .tmp-test-*
+
+# eval artifact (its own project)
+/devlog-eval/
+/devlog-eval-plan*.json
