@@ -19,11 +19,15 @@ function resolveDecalyst() {
   if (existsSync(path.join(process.cwd(), "src/cli/index.ts"))) return process.cwd();
   return "C:/Users/Administrator/Desktop/decalyst-swarm";
 }
-const pros = loadBackends(env).filter((b) => b.tier === "pro" && b.apiKey);
+// The review committee: every backend flagged SWARM_BACKEND_n_REVIEW=true (as many
+// as you like). Falls back to the pro tier when none are flagged.
+const withKeys = loadBackends(env).filter((b) => b.apiKey);
+const flagged = withKeys.filter((b) => b.review);
+const pros = flagged.length > 0 ? flagged : withKeys.filter((b) => b.tier === "pro");
 
 if (pros.length === 0) {
   console.error(
-    "no pro-tier backends with keys in .env (need SWARM_BACKEND_n_TIER=pro). Set DECALYST_DIR if the repo is elsewhere.",
+    "no review backends with keys in .env. Flag reviewers with SWARM_BACKEND_n_REVIEW=true (or configure a pro tier). Set DECALYST_DIR if the repo is elsewhere.",
   );
   process.exit(1);
 }
@@ -104,9 +108,10 @@ async function review(backend, planText, diff) {
 
 function loadBackends(env) {
   const out = [];
-  for (let n = 1; ; n++) {
+  for (let n = 1; n <= 24; n++) {
     const p = `SWARM_BACKEND_${n}_`;
-    if (!env[`${p}BASE_URL`]) break;
+    if (!env[`${p}BASE_URL`]) continue;
+    if (["false", "0", "no", "off", "disabled"].includes((env[`${p}ENABLED`] || "").toLowerCase())) continue;
     const mode = (env[`${p}THINKING`] || "").toLowerCase();
     let thinking = {};
     if (["enabled", "on", "true"].includes(mode)) {
@@ -121,6 +126,7 @@ function loadBackends(env) {
       apiKey: env[`${p}API_KEY`] || "",
       model: env[`${p}MODEL`] || "default",
       tier: (env[`${p}TIER`] || "bulk").toLowerCase(),
+      review: ["true", "1", "yes", "on", "enabled"].includes((env[`${p}REVIEW`] || "").toLowerCase()),
       thinking,
     });
   }

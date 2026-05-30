@@ -2,7 +2,7 @@
 
 Open-source code-generation harness. A frontier model plans and reviews. A swarm of cheap models writes files in parallel. Works across any language and any OpenAI-compatible backend.
 
-> **Status:** active development. The harness runs two ways: a self-contained run where an in-repo frontier model plans and reviews, and `swarm-exec`, where an external orchestrator (Claude Code or any agent) owns planning and review and uses the swarm as the engine. The `swarm-exec` path adds multi-backend tiers, contract-first plans, file grouping, an automated fix-loop, and per-run telemetry. 500+ tests pass.
+> **Status:** active development. The harness runs two ways: a self-contained run where an in-repo frontier model plans and reviews, and `swarm-exec`, where an external orchestrator (Claude Code or any agent) owns planning and review and uses the swarm as the engine. The `swarm-exec` path adds multi-backend tiers, contract-first plans, file grouping, an automated fix-loop, and per-run telemetry.
 
 ## Why
 

@@ -58,3 +58,6 @@ temp/
 /devlog-eval/
 /devlog-*.json
 /devlog-*.out
+
+# test suite kept local, not shipped in the repo
+/tests/
