@@ -56,4 +56,5 @@ temp/
 
 # eval artifact (its own project)
 /devlog-eval/
-/devlog-eval-plan*.json
+/devlog-*.json
+/devlog-*.out
