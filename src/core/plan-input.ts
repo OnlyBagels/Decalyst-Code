@@ -33,6 +33,7 @@ export function parseProjectPlan(raw: unknown): ProjectPlan {
   if (parsed.dependencies) plan.dependencies = parsed.dependencies;
   if (parsed.devDependencies) plan.devDependencies = parsed.devDependencies;
   if (parsed.contract) plan.contract = parsed.contract;
+  if (parsed.contextFiles) plan.contextFiles = parsed.contextFiles;
   return plan;
 }
 

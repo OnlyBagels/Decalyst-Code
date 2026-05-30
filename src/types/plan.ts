@@ -24,4 +24,11 @@ export interface ProjectPlan {
    * never redefine them, so cross-file seams don't drift.
    */
   contract?: string;
+  /**
+   * Existing files every worker should READ for context but never rewrite. Use
+   * on a fix/recovery pass so the worker sees the real interfaces it imports
+   * (e.g. service files an already-built http layer must call) instead of
+   * guessing. They are context only — not targets, not dependencies.
+   */
+  contextFiles?: string[];
 }

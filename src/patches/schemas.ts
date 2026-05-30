@@ -55,6 +55,7 @@ export const projectPlanSchema = z
     ),
     constraints: z.array(z.string()).default([]),
     contract: z.string().nullish(),
+    contextFiles: z.array(z.string()).nullish(),
   })
   .strict();
 

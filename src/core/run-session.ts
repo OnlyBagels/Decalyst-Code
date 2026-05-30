@@ -224,11 +224,17 @@ export function planToTasks(
           .join("\n")}`
       : files[0]!.purpose;
 
-    // The concrete files of every dependency group, so the worker reads the real
-    // interfaces it imports (they exist on disk by the time this task runs).
-    const dependencyFiles = [...deps].flatMap(
-      (dg) => groups.get(dg)?.map((f) => f.path) ?? [],
-    );
+    // The concrete files of every dependency group, plus any plan-level
+    // contextFiles (existing files to read but not rewrite). The worker reads
+    // the real interfaces it imports instead of guessing. Exclude this task's
+    // own targets.
+    const targetSet = new Set(targetFiles);
+    const dependencyFiles = [
+      ...new Set([
+        ...[...deps].flatMap((dg) => groups.get(dg)?.map((f) => f.path) ?? []),
+        ...(plan.contextFiles ?? []),
+      ]),
+    ].filter((p) => !targetSet.has(p));
 
     tasks.push({
       id: groupId,

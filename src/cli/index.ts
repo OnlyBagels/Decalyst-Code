@@ -120,13 +120,13 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
-  program
-    .option("--workspace <path>", "Workspace directory", "./workspace")
-    .option("--runs <path>", "Where run traces are stored", "./runs")
-    .action(async (opts) => {
-      const code = await chatCommand({ workspace: opts.workspace, runs: opts.runs });
-      process.exit(code);
-    });
+  // Default action (no subcommand) opens chat. No global --workspace/--runs here:
+  // global program options shadow the same-named options on subcommands like
+  // swarm-exec, which is why --workspace was being ignored.
+  program.action(async () => {
+    const code = await chatCommand({ workspace: "./workspace", runs: "./runs" });
+    process.exit(code);
+  });
 
   await program.parseAsync(process.argv);
 }

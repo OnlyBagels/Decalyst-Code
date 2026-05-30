@@ -51,6 +51,26 @@ describe("planToTasks grouping + contract", () => {
     expect(routes.constraints.some((c) => c.includes("store exposes list/get"))).toBe(true);
   });
 
+  it("adds plan.contextFiles to every task as read-only context (not deps)", () => {
+    const plan = parseProjectPlan({
+      projectName: "x",
+      contextFiles: ["src/users/service.ts", "src/posts/service.ts"],
+      files: [
+        { path: "src/routes.ts", purpose: "routers", group: "http" },
+        { path: "src/app.ts", purpose: "wire", group: "http" },
+      ],
+      constraints: [],
+    });
+    const tasks = planToTasks(plan, buildProjectContext(plan));
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.dependencyFiles?.slice().sort()).toEqual([
+      "src/posts/service.ts",
+      "src/users/service.ts",
+    ]);
+    // context-only: no ordering dependency created
+    expect(tasks[0]?.dependencies).toEqual([]);
+  });
+
   it("leaves ungrouped files as one task each (back-compat)", () => {
     const plan = parseProjectPlan({
       projectName: "x",
