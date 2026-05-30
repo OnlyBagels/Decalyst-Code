@@ -32,6 +32,8 @@ export async function runChat(args: {
   onMessage: (m: Message) => void;
   bus?: EventBus;
   workspaceSummary?: string;
+  /** Override the history-compaction token budget (smaller-context models, tests). */
+  compactTargetTokens?: number;
 }): Promise<void> {
   const now = () => new Date().toISOString();
   const model = args.state.orchestratorModel ?? getDefaultOrchestratorModel();
@@ -55,7 +57,12 @@ export async function runChat(args: {
       cachedSummary: args.state.conversationSummary,
     });
 
-    const { messages: compacted, wasCompacted, summaryUsed } = await compactor.compact(chatHistory);
+    const { messages: compacted, wasCompacted, summaryUsed } = await compactor.compact(
+      chatHistory,
+      args.compactTargetTokens !== undefined
+        ? { targetTokens: args.compactTargetTokens }
+        : undefined,
+    );
 
     if (wasCompacted && summaryUsed !== undefined) {
       const summarizedCount = args.state.transcript.length - 6;

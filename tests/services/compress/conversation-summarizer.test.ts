@@ -35,7 +35,7 @@ describe("ConversationSummarizer", () => {
     const call = calls[0]!;
     expect(call.model).toBe("test-model");
     expect(call.temperature).toBe(0.2);
-    expect(call.maxTokens).toBe(400);
+    expect(call.maxTokens).toBe(8192);
     expect(call.agent).toBe("summarizer");
 
     const systemMsg = call.messages.find((m) => m.role === "system");

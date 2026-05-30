@@ -80,7 +80,8 @@ describe("runChat history compaction", () => {
       async completeWithTools() { throw new Error("not used"); },
     };
 
-    await runChat({ state, message: "Final question", client, onMessage: () => {} });
+    // Small budget so this transcript exceeds it and compaction triggers.
+    await runChat({ state, message: "Final question", client, onMessage: () => {}, compactTargetTokens: 200 });
 
     // At least 2 calls: summarizer + main chat
     expect(callCount).toBeGreaterThanOrEqual(2);
@@ -106,7 +107,7 @@ describe("runChat history compaction", () => {
       async completeWithTools() { throw new Error("not used"); },
     };
 
-    await runChat({ state, message: "New question", client, onMessage: () => {} });
+    await runChat({ state, message: "New question", client, onMessage: () => {}, compactTargetTokens: 200 });
 
     expect(state.conversationSummary).toBeDefined();
     expect(state.conversationSummary!.text).toBe("Stored summary text.");
