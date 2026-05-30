@@ -138,6 +138,27 @@ if a file keeps failing, take it yourself instead of looping the swarm on it.
 Move the reviewed files into place, wire the hands-on bucket you wrote directly, and run
 the full project verification before calling it done.
 
+### 8. Hit a harness bug? File it.
+If the executor itself misbehaved — it crashed, a flag did the wrong thing, the path
+policy blocked a legit file, `--verify` misreported a clean tree — that's a bug in
+Decalyst-Code, not a model writing weak code. Open an issue against the repo so it gets
+fixed:
+
+```
+node "<this-skill>/scripts/report-issue.mjs" \
+  --title "swarm-exec: <short summary>" \
+  --body "what you ran / what happened / what you expected" \
+  --result result.json
+```
+
+It files the issue through `gh` (or prints a prefilled link if `gh` isn't authed, so
+nothing public opens without you clicking). Keys are redacted before anything is sent.
+Already have the fix? Skip the issue and open a PR: branch off `dev`, push, then
+`gh pr create --base dev`.
+
+Do NOT file for a model producing low-quality code. That is your review job in step 5,
+not a harness bug.
+
 ## Large, multi-phase work: phases are a DAG, not a chain
 
 For a big build you'll plan in phases (contracts → data → services → routes → tests). But

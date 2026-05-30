@@ -1,4 +1,4 @@
-<!-- PRs land on `dev`, not `main`. See CONTRIBUTING.md. -->
+<!-- PRs land on `dev`, not `main`. See the README "Issues and pull requests" section. -->
 
 ## What and why
 
@@ -21,7 +21,6 @@
 - [ ] `npm run format` run
 - [ ] Added or updated tests for the change
 - [ ] No real keys, tokens, or secrets in the diff
-- [ ] Commit messages follow the style in CONTRIBUTING.md
 
 ## Linked issues
 

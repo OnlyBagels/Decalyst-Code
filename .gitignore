@@ -36,7 +36,6 @@ out/
 # root stay out; whitelist the real docs and the shipped skill pack explicitly.
 *.md
 !/README.md
-!/CONTRIBUTING.md
 !/SECURITY.md
 !/.github/PULL_REQUEST_TEMPLATE.md
 !/.github/ISSUE_TEMPLATE/*.md
