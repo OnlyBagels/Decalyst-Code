@@ -12,6 +12,11 @@ import { safeStringify } from "../utils/json.js";
 
 const MAX_WORKER_RETRIES = 2;
 
+// DeepSeek V4 / MiMo V2.5 support very large outputs (up to 384K). 64k lets a
+// worker write a multi-file unit in one shot without truncating mid-file.
+const MAX_OUTPUT_TOKENS =
+  Number.parseInt(process.env["SWARM_MAX_OUTPUT_TOKENS"] ?? "", 10) || 64_000;
+
 /** Anything that can turn a task into an applied-edit result. */
 export interface TaskWorker {
   run(task: AgentTask): Promise<AgentResult>;
@@ -39,7 +44,7 @@ export class WorkerRunner implements TaskWorker {
             { role: "user", content: userPayload },
           ],
           temperature: 0.1,
-          maxTokens: 24576,
+          maxTokens: MAX_OUTPUT_TOKENS,
         });
 
         const extracted = extractJsonObject(raw);

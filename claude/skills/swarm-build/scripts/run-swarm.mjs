@@ -43,7 +43,9 @@ const cli = [
   "--json",
 ];
 if (args.out) cli.push("--out", path.resolve(args.out));
-if (args.verify) cli.push("--verify");
+// Verify (install/typecheck/test) is ON by default — it's the mechanical drift
+// detector. Pass --no-verify to skip (e.g. a non-buildable scratch run).
+if (args.verify !== false) cli.push("--verify");
 
 const res = spawnSync("npx", cli, { cwd: decalyst, stdio: "inherit", shell: true });
 process.exit(res.status ?? 1);
@@ -53,6 +55,7 @@ function parse(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--verify") o.verify = true;
+    else if (a === "--no-verify") o.verify = false;
     else if (a.startsWith("--")) o[a.slice(2)] = argv[++i];
   }
   return o;

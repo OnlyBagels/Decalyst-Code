@@ -51,6 +51,19 @@ export class ContextSelector {
       }
     }
 
+    // Priority 2.5: explicit dependency files — the real interfaces this task
+    // imports. They exist on disk (deps run first), so the worker reads the
+    // actual signatures instead of guessing.
+    for (const depPath of task.dependencyFiles ?? []) {
+      if (contexts.length >= this.budget.maxContextFiles) break;
+      if (contexts.some((c) => c.path === depPath)) continue;
+      const ctx = await this.loadFile(depPath, "dependency (imported)", remainingChars);
+      if (ctx && ctx.exists) {
+        contexts.push(ctx);
+        remainingChars -= ctx.content.length;
+      }
+    }
+
     // Priority 3: files imported by target files
     for (const targetPath of task.targetFiles) {
       if (!targetPath.endsWith(".ts")) continue;

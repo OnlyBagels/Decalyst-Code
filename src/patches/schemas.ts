@@ -23,7 +23,7 @@ export const agentResultSchema = z
     taskId: z.string().min(1),
     role: workerRoleSchema,
     status: z.enum(["success", "cannot_complete"]),
-    edits: z.array(fileEditSchema).max(4),
+    edits: z.array(fileEditSchema).max(8),
     blockers: z.array(z.string()).default([]),
     requestedDependencies: z
       .object({
@@ -50,9 +50,11 @@ export const projectPlanSchema = z
         role: workerRoleSchema,
         purpose: z.string().min(1),
         dependsOn: z.array(z.string()).nullish(),
+        group: z.string().nullish(),
       }),
     ),
     constraints: z.array(z.string()).default([]),
+    contract: z.string().nullish(),
   })
   .strict();
 

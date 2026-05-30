@@ -18,8 +18,8 @@ import {
   MAX_FILES_PER_ROLE,
   MAX_OUTPUT_CHARS_DEFAULT,
 } from "../workers/worker-roles.js";
-import type { AgentTask, ProjectContext } from "../types/agent.js";
-import type { ProjectPlan } from "../types/plan.js";
+import type { AgentTask, ProjectContext, WorkerRole } from "../types/agent.js";
+import type { ProjectPlan, PlannedFile } from "../types/plan.js";
 import type { RunSummary } from "../types/results.js";
 import type { UsageTracker } from "../tui/usage-tracker.js";
 
@@ -183,23 +183,71 @@ export function planToTasks(
   plan: ProjectPlan,
   projectContext: ProjectContext,
 ): AgentTask[] {
-  const idForPath = (p: string) => p; // use path as task id
+  // A file's group key is its `group` (coupled unit) or its own path (singleton).
+  const groupOf = (f: PlannedFile): string => f.group ?? f.path;
+  const pathToGroup = new Map<string, string>();
+  for (const f of plan.files) pathToGroup.set(f.path, groupOf(f));
 
-  return plan.files.map<AgentTask>((file) => ({
-    id: idForPath(file.path),
-    role: file.role,
-    title: `Write ${file.path}`,
-    goal: file.purpose,
-    targetFiles: [file.path],
-    fileContexts: [],
-    constraints: plan.constraints,
-    projectContext,
-    limits: {
-      maxFilesToEdit: MAX_FILES_PER_ROLE[file.role],
-      maxOutputChars: MAX_OUTPUT_CHARS_DEFAULT,
-    },
-    dependencies: file.dependsOn ?? [],
-    status: "pending",
-    attempt: 0,
-  }));
+  // Collect files per group in plan order.
+  const groups = new Map<string, PlannedFile[]>();
+  for (const f of plan.files) {
+    const g = groupOf(f);
+    const arr = groups.get(g);
+    if (arr) arr.push(f);
+    else groups.set(g, [f]);
+  }
+
+  // The contract is broadcast to every worker as a high-priority constraint.
+  const contractConstraint = plan.contract
+    ? [`SHARED CONTRACT — import these exact names, never redefine them:\n${plan.contract}`]
+    : [];
+
+  const tasks: AgentTask[] = [];
+  for (const [groupId, files] of groups) {
+    const multi = files.length > 1;
+    // A coupled unit is written by one general worker so the seams agree.
+    const role: WorkerRole = multi ? "scaffold-writer" : files[0]!.role;
+    const targetFiles = files.map((f) => f.path);
+
+    // Remap each file's deps to the GROUP that owns them; drop self-deps.
+    const deps = new Set<string>();
+    for (const f of files) {
+      for (const d of f.dependsOn ?? []) {
+        const dg = pathToGroup.get(d) ?? d;
+        if (dg !== groupId) deps.add(dg);
+      }
+    }
+
+    const goal = multi
+      ? `Write these files as one coherent unit (consistent types and import/export names across all of them):\n${files
+          .map((f) => `- ${f.path}: ${f.purpose}`)
+          .join("\n")}`
+      : files[0]!.purpose;
+
+    // The concrete files of every dependency group, so the worker reads the real
+    // interfaces it imports (they exist on disk by the time this task runs).
+    const dependencyFiles = [...deps].flatMap(
+      (dg) => groups.get(dg)?.map((f) => f.path) ?? [],
+    );
+
+    tasks.push({
+      id: groupId,
+      role,
+      title: multi ? `Write ${groupId} (${files.length} files)` : `Write ${targetFiles[0]}`,
+      goal,
+      targetFiles,
+      fileContexts: [],
+      constraints: [...contractConstraint, ...plan.constraints],
+      projectContext,
+      limits: {
+        maxFilesToEdit: Math.min(8, Math.max(files.length, MAX_FILES_PER_ROLE[role])),
+        maxOutputChars: MAX_OUTPUT_CHARS_DEFAULT,
+      },
+      dependencies: [...deps],
+      dependencyFiles,
+      status: "pending",
+      attempt: 0,
+    });
+  }
+  return tasks;
 }

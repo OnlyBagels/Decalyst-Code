@@ -36,6 +36,16 @@ Rules:
   (.ts → TypeScript, .html → HTML, .py → Python, etc.). Write idiomatic
   code for that format.
 - Use any project conventions visible in fileContexts.
+- IMPORT shared types, interfaces, classes, and functions from their canonical
+  file. NEVER redefine a type, interface, or class that already exists in a file
+  shown in fileContexts or named in the contract — import it from its module.
+- Match the EXACT names and signatures given in the contract and fileContexts:
+  field names, method names, import paths, and export names. Do not invent or
+  rename them. If the contract says a store exposes get/list/remove, use exactly
+  those — do not guess getById/getAll/delete.
+- When you write more than one file in the same task, keep them mutually
+  consistent: the same type shape and the same import/export names across all of
+  them.
 - Do not invent libraries that aren't in the project's declared dependencies
   (when a package manifest is present).
 - If you cannot complete the task, return status "cannot_complete" with

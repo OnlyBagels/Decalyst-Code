@@ -29,12 +29,18 @@ if (pros.length === 0) {
 }
 
 const SYS =
-  "You are a senior code reviewer. Review the diff for correctness bugs, security " +
-  "issues, and convention violations. For each finding give: file, what is wrong, " +
-  "severity (high/med/low). Report only real findings; if there are none, say 'no " +
-  "issues found'. Be terse, no preamble.";
+  "You are a senior code reviewer reviewing a large multi-file change produced by a " +
+  "swarm of coding agents. You are given the ORIGINAL PLAN AND CONTRACT the code was " +
+  "built against, then the DIFFS. Review in this order: (1) DRIFT from the plan/contract " +
+  "— files whose types, method or field names, import paths, or export names do not " +
+  "match the agreed contract, or that redefine a shared type instead of importing it; " +
+  "(2) cross-file integration bugs (wrong imports, mismatched signatures); (3) correctness " +
+  "bugs; (4) security; (5) convention violations. For each finding give: file, what is " +
+  "wrong, severity (high/med/low). Report only real findings; if none, say 'no issues " +
+  "found'. Be specific and terse, no preamble.";
 
 (async () => {
+  const planText = args.plan ? safeRead(path.resolve(args.plan)) : "";
   const diff = args.input
     ? readFileSync(path.resolve(args.input), "utf8")
     : await readStdin();
@@ -46,7 +52,7 @@ const SYS =
   const results = await Promise.all(
     pros.map(async (b) => {
       try {
-        return { b, text: await review(b, diff) };
+        return { b, text: await review(b, planText, diff) };
       } catch (e) {
         return { b, text: `(review failed: ${String(e).slice(0, 200)})` };
       }
@@ -63,14 +69,24 @@ const SYS =
   );
 })();
 
-async function review(backend, diff) {
+async function review(backend, planText, diff) {
+  const parts = [];
+  if (planText.trim()) {
+    parts.push(
+      "ORIGINAL PLAN AND CONTRACT (what the code was supposed to be):\n\n" + planText,
+    );
+  }
+  // Reviewers have 1M-token windows; send the whole change. Cap only as a
+  // runaway guard (~500k tokens), leaving room for the plan and the output.
+  parts.push("DIFFS / CODE TO REVIEW:\n\n" + truncate(diff, 2_000_000));
+
   const body = {
     model: backend.model,
     messages: [
       { role: "system", content: SYS },
-      { role: "user", content: "Review this diff:\n\n" + truncate(diff, 60000) },
+      { role: "user", content: parts.join("\n\n---\n\n") },
     ],
-    max_tokens: 3000,
+    max_tokens: 16000,
     ...backend.thinking,
   };
   const res = await fetch(`${backend.baseURL.replace(/\/$/, "")}/chat/completions`, {
@@ -131,6 +147,14 @@ function readStdin() {
     process.stdin.on("data", (c) => (d += c));
     process.stdin.on("end", () => r(d));
   });
+}
+
+function safeRead(p) {
+  try {
+    return readFileSync(p, "utf8");
+  } catch {
+    return "";
+  }
 }
 
 function truncate(s, n) {

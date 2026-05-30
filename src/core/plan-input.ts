@@ -18,6 +18,7 @@ export function parseProjectPlan(raw: unknown): ProjectPlan {
       purpose: f.purpose,
     };
     if (f.dependsOn) file.dependsOn = f.dependsOn;
+    if (f.group) file.group = f.group;
     return file;
   });
 
@@ -31,6 +32,7 @@ export function parseProjectPlan(raw: unknown): ProjectPlan {
   if (parsed.packageManager) plan.packageManager = parsed.packageManager;
   if (parsed.dependencies) plan.dependencies = parsed.dependencies;
   if (parsed.devDependencies) plan.devDependencies = parsed.devDependencies;
+  if (parsed.contract) plan.contract = parsed.contract;
   return plan;
 }
 

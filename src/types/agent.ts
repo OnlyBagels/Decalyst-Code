@@ -92,6 +92,8 @@ export interface AgentTask {
   testResults?: TestResult[];
   limits: TaskLimits;
   dependencies: string[];
+  /** Concrete file paths this task depends on, for context (the deps' files). */
+  dependencyFiles?: string[];
   status: TaskStatus;
   attempt: number;
   failureReason?: string;
