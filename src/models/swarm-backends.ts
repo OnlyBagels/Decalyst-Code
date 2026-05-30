@@ -7,9 +7,12 @@ export interface BackendConfig {
   model: string;
   concurrency: number;
   thinkingParams: Record<string, unknown>;
+  /** Routing tier: "bulk" (default) or "pro". swarm-exec selects one tier per run. */
+  tier: string;
 }
 
 const DEFAULT_CONCURRENCY = 8;
+const DEFAULT_TIER = "bulk";
 
 /**
  * Loads the swarm worker backends from the environment. Define one or more
@@ -47,6 +50,7 @@ export function loadBackends(
         env[`${prefix}THINKING`],
         env[`${prefix}REASONING_EFFORT`],
       ),
+      tier: (env[`${prefix}TIER`] ?? DEFAULT_TIER).toLowerCase(),
     });
   }
 
@@ -69,8 +73,18 @@ export function loadBackends(
         env["SWARM_THINKING"],
         env["SWARM_REASONING_EFFORT"],
       ),
+      tier: DEFAULT_TIER,
     },
   ];
+}
+
+/** Backends in a tier (default "bulk"). Empty if none configured for it. */
+export function backendsForTier(
+  tier: string,
+  env: NodeJS.ProcessEnv = process.env,
+): BackendConfig[] {
+  const want = tier.toLowerCase();
+  return loadBackends(env).filter((b) => b.tier === want);
 }
 
 function parseConcurrency(raw: string | undefined): number {

@@ -12,6 +12,7 @@ function cfg(name: string, concurrency: number): BackendConfig {
     model: `${name}-model`,
     concurrency,
     thinkingParams: {},
+    tier: "bulk",
   };
 }
 

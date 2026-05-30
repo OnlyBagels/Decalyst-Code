@@ -4,7 +4,7 @@ import { FileManager } from "../files/file-manager.js";
 import { ContextSelector } from "../context/context-selector.js";
 import { WorkerRunner, type TaskWorker } from "../workers/worker-runner.js";
 import { WorkerPool } from "../workers/worker-pool.js";
-import { loadBackends } from "../models/swarm-backends.js";
+import { backendsForTier } from "../models/swarm-backends.js";
 import { PatchManager } from "../patches/patch-manager.js";
 import { NpmRunner } from "../runners/npm-runner.js";
 import { TraceWriter } from "../traces/trace-writer.js";
@@ -24,6 +24,8 @@ export interface ExecPlanOptions {
   tracesRoot: string;
   concurrency: number;
   verify: boolean;
+  /** Worker tier to run: "bulk" (default) or "pro". */
+  tier?: string;
   /** Inject a worker client (tests). Defaults to the configured swarm client. */
   swarmClient?: ModelClient;
   tracker?: UsageTracker;
@@ -94,8 +96,15 @@ export async function execPlan(opts: ExecPlanOptions): Promise<ExecPlanResult> {
     concurrency = Math.max(1, opts.concurrency);
     backendNames = ["injected"];
   } else {
+    const tier = opts.tier ?? "bulk";
+    const backends = backendsForTier(tier);
+    if (backends.length === 0) {
+      throw new Error(
+        `no worker backends configured for tier "${tier}". Set SWARM_BACKEND_n_* with TIER=${tier} (see .env.example).`,
+      );
+    }
     const pool = new WorkerPool(
-      loadBackends(),
+      backends,
       opts.tracker ? { tracker: opts.tracker } : {},
     );
     worker = pool;

@@ -69,6 +69,11 @@ async function main(): Promise<void> {
     .option("--traces <path>", "Where run traces are stored", "./runs")
     .option("--out <path>", "Also write the result JSON to this file")
     .option(
+      "--tier <tier>",
+      "Worker tier: bulk (DeepSeek Flash + MiMo) or pro (the Pro models)",
+      "bulk",
+    )
+    .option(
       "--verify",
       "Run install/typecheck/test after the swarm and include results",
       false,
@@ -86,6 +91,7 @@ async function main(): Promise<void> {
         workspace: options.workspace,
         traces: options.traces,
         out: options.out,
+        tier: options.tier,
         verify: Boolean(options.verify),
         json: Boolean(options.json),
         concurrency: options.concurrency,

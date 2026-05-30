@@ -13,6 +13,7 @@ export interface SwarmExecCommandOptions {
   verify: boolean;
   json: boolean;
   out?: string;
+  tier?: string;
 }
 
 /**
@@ -42,6 +43,7 @@ export async function swarmExecCommand(
       tracesRoot,
       concurrency: opts.concurrency,
       verify: opts.verify,
+      ...(opts.tier ? { tier: opts.tier } : {}),
     });
 
     const json = JSON.stringify(result, null, 2);

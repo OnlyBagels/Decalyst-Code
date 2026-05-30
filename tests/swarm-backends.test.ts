@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadBackends } from "../src/models/swarm-backends.js";
+import { loadBackends, backendsForTier } from "../src/models/swarm-backends.js";
 
 describe("loadBackends", () => {
   it("loads numbered backend groups for a multi-provider swarm", () => {
@@ -52,5 +52,22 @@ describe("loadBackends", () => {
     } as NodeJS.ProcessEnv);
     expect(backends[0]?.concurrency).toBe(8);
     expect(backends[0]?.name).toBe("backend-1");
+    expect(backends[0]?.tier).toBe("bulk");
+  });
+
+  it("selects backends by tier", () => {
+    const env = {
+      SWARM_BACKEND_1_NAME: "deepseek",
+      SWARM_BACKEND_1_BASE_URL: "https://api.deepseek.com",
+      SWARM_BACKEND_1_MODEL: "deepseek-v4-flash",
+      SWARM_BACKEND_1_TIER: "bulk",
+      SWARM_BACKEND_2_NAME: "deepseek-pro",
+      SWARM_BACKEND_2_BASE_URL: "https://api.deepseek.com",
+      SWARM_BACKEND_2_MODEL: "deepseek-v4-pro",
+      SWARM_BACKEND_2_TIER: "pro",
+    } as NodeJS.ProcessEnv;
+    expect(backendsForTier("bulk", env).map((b) => b.name)).toEqual(["deepseek"]);
+    expect(backendsForTier("pro", env).map((b) => b.name)).toEqual(["deepseek-pro"]);
+    expect(backendsForTier("nope", env)).toEqual([]);
   });
 });

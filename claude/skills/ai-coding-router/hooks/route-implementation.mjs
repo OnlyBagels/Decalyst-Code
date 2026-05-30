@@ -34,12 +34,12 @@ function emit(raw) {
     /\b(crypto|encrypt|decrypt|e2ee|mls|signal protocol|opaque|key(s)?|secret|token|auth\w*|login|session|password|payment|billing|stripe|migration|schema change|permission|access control|rbac|sandbox|deserializ)/i.test(prompt);
 
   const lines = [
-    "[ai-coding-router] This looks like implementation work — route it before writing code:",
-    "- Classify the task (easy scaffold / medium / hard / long-context / risky). See the ai-coding-router skill for the table.",
-    "- BULK / greenfield / many independent files / scaffolding -> drive the decalyst multi-backend swarm:",
-    "    plan the file list -> `swarm-exec --plan plan.json` (DeepSeek v4-flash + MiMo v2.5 run in parallel) -> review results yourself (Opus).",
-    "- HARD / single tricky change -> Claude Sonnet; you (Opus) review.",
+    "[ai-coding-router] This looks like implementation work. Route it before writing code (cheap -> expensive):",
+    "- BULK / greenfield / many independent files / scaffolding -> invoke the **swarm-build** skill: it plans the files and runs the bulk swarm (DeepSeek V4 Flash + MiMo V2.5) in parallel.",
+    "- HARDER / important files -> upgrade the swarm to the Pros (DeepSeek V4 Pro + MiMo V2.5-Pro).",
+    "- SERIOUS / architectural single change -> Claude Sonnet.",
     "- TRIVIAL single edit -> just do it inline; don't over-orchestrate.",
+    "- FINAL review of the finished work -> 3-model panel (Opus 4.8 + DeepSeek V4 Pro + MiMo V2.5-Pro); you (Opus) reconcile and make the call.",
   ];
   if (risky) {
     lines.push(
