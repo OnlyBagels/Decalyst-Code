@@ -32,9 +32,15 @@ out/
 .continue/
 .cursorrules
 
-# Repo policy: only README.md is allowed markdown in the tree
+# Repo policy: curated docs only. Stray planning / scratch *.md at the repo
+# root stay out; whitelist the real docs and the shipped skill pack explicitly.
 *.md
-!README.md
+!/README.md
+!/CONTRIBUTING.md
+!/SECURITY.md
+!/.github/PULL_REQUEST_TEMPLATE.md
+!/.github/ISSUE_TEMPLATE/*.md
+!claude/**/*.md
 
 # Editor and OS
 .vscode/

@@ -1,0 +1,58 @@
+name: Bug report
+description: Something the harness does wrong or crashes on
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not paste API keys, tokens, or
+        `.env` contents anywhere in this issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you ran and what went wrong.
+      placeholder: |
+        Ran: npm run dev -- swarm-exec --plan plan.json --workspace ./out --verify
+        Expected: files written and verify passes
+        Got: every worker returned cannot_complete
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest plan or command that triggers it.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Run mode
+      options:
+        - swarm-exec (external orchestrator)
+        - run (self-contained)
+        - chat / inspect
+    validations:
+      required: true
+  - type: input
+    id: backends
+    attributes:
+      label: Backend(s)
+      description: Which providers / models, no keys.
+      placeholder: deepseek-v4-flash + mimo-v2.5, or local ollama qwen2.5-coder
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Error text or the result.json. Redact anything sensitive.
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: Node 20.11, Windows 11 / macOS 14 / Ubuntu 24.04
+    validations:
+      required: true
